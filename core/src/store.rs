@@ -129,6 +129,11 @@ impl Store {
                         store.copies.insert(rel, render_note(&note));
                         continue;
                     }
+                    // Notes in the Deleted folder are marked as trashed.
+                    let mut note = note;
+                    if is_in_trash(&rel) {
+                        note.trashed = true;
+                    }
                     store.written.insert(note.id, (rel, render_note(&note)));
                     notes.push(note);
                 }
@@ -180,7 +185,7 @@ impl Store {
     /// treat the copy as a stale location and delete it.
     fn settle_copies(&mut self, doc: &Document) {
         for note in &doc.notes {
-            let own = note_rel_path(doc.notebook_name(note.notebook_id), note.id);
+            let own = note_rel_path(doc.notebook_name(note.notebook_id), note.id, note.trashed);
             let Some((loaded, text)) = self.written.get(&note.id).cloned() else { continue };
             if loaded == own {
                 continue;
@@ -229,10 +234,21 @@ impl Store {
     }
 
     /// Drop the notebook folder once its last note is gone.
+    /// Drop empty folders up the tree, stopping at the notes root. A note in
+    /// `Work/.deleted/` leaves both `.deleted` and `Work` to be cleaned if
+    /// they are empty.
     fn remove_empty_folder(&self, note_path: &Path) {
-        let Some(parent) = note_path.parent() else { return };
-        if parent != self.notes_dir() {
-            let _ = fs::remove_dir(parent);
+        let notes = self.notes_dir();
+        let mut dir = note_path.parent();
+        while let Some(d) = dir {
+            if d == notes {
+                break;
+            }
+            if fs::remove_dir(d).is_err() {
+                // Not empty, or already gone — stop climbing.
+                break;
+            }
+            dir = d.parent();
         }
     }
 
@@ -242,7 +258,7 @@ impl Store {
         fs::create_dir_all(self.notes_dir())?;
         let mut wanted: HashSet<String> = HashSet::new();
         for note in &doc.notes {
-            let rel = note_rel_path(doc.notebook_name(note.notebook_id), note.id);
+            let rel = note_rel_path(doc.notebook_name(note.notebook_id), note.id, note.trashed);
             let text = render_note(note);
             wanted.insert(rel.clone());
 
@@ -251,7 +267,7 @@ impl Store {
                 if other == note.notebook_id {
                     continue;
                 }
-                let copy_rel = note_rel_path(doc.notebook_name(other), note.id);
+                let copy_rel = note_rel_path(doc.notebook_name(other), note.id, note.trashed);
                 wanted.insert(copy_rel.clone());
                 if self.copies.get(&copy_rel) == Some(&text) {
                     continue;
@@ -375,16 +391,31 @@ pub fn workspace_folder(name: &str) -> String {
 }
 
 /// Where a note lives, relative to the notes folder and to the WebDAV folder.
-pub fn note_rel_path(notebook_name: &str, id: u64) -> String {
+pub fn note_rel_path(notebook_name: &str, id: u64, trashed: bool) -> String {
     let folder = workspace_folder(notebook_name);
-    if folder.trim().is_empty() {
-        note_file_name(id)
+    let base_path = if folder.trim().is_empty() {
+        String::new()
     } else {
-        format!("{folder}/{}", note_file_name(id))
-    }
+        format!("{folder}/")
+    };
+    let subfolder = if trashed { TRASH_FOLDER.to_owned() + "/" } else { String::new() };
+    format!("{base_path}{subfolder}{}", note_file_name(id))
 }
 
 pub const LIBRARY_FILE: &str = "library.json";
+
+/// The folder where trashed notes are stored.
+/// The folder trashed notes move into. A notebook can never be named this:
+/// `workspace_folder` trims leading dots, so ".deleted" is not reachable
+/// from a notebook name and can't collide with one.
+pub const TRASH_FOLDER: &str = ".deleted";
+
+/// Whether a path relative to the notes folder is in the trash.
+pub fn is_in_trash(rel_path: &str) -> bool {
+    rel_path
+        .split('/')
+        .any(|part| part == TRASH_FOLDER)
+}
 
 /// The notebooks inside a library.json text.
 pub fn parse_library(text: &str) -> Option<Vec<Notebook>> {
@@ -954,8 +985,8 @@ mod tests {
 
         // Reopen, then pretend the disk listed the copy first.
         let (mut store, mut doc, _, _) = Store::open_at(dir.clone());
-        let own_rel = note_rel_path("Zeta", id);
-        let copy_rel = note_rel_path("Alpha", id);
+        let own_rel = note_rel_path("Zeta", id, false);
+        let copy_rel = note_rel_path("Alpha", id, false);
         let text = store.written.remove(&id).unwrap().1;
         store.copies.remove(&copy_rel);
         store.written.insert(id, (copy_rel.clone(), text.clone()));

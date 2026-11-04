@@ -320,6 +320,45 @@ impl WebDav {
             .map(|entry| entry.revision())
             .unwrap_or_default())
     }
+
+    /// List the syncable files inside a top-level `folder` on the server.
+    ///
+    /// Only two kinds of subfolder are walked into, one level deep: a
+    /// workspace's trash (`<Workspace>/.deleted/`) and the per-workspace
+    /// folders under `Versions/`. Anything else — above all the
+    /// `note-<id>_attachments/` folders — is left alone, because the sync
+    /// only looks at a file's last path segment to decide whether it is a
+    /// note, and an attachment called `note-5.md` must never pass for one.
+    fn collect_files(
+        &mut self,
+        folder: &str,
+        files: &mut Vec<RemoteFile>,
+        walk_into: bool,
+    ) -> CloudResult<()> {
+        let url = format!("{}/", self.file_url(folder));
+        let in_versions = folder.eq_ignore_ascii_case(crate::store::VERSIONS_FOLDER);
+        for entry in self.propfind(&url, 1)? {
+            let Some(name) = self.relative(&entry.href) else { continue };
+            // PROPFIND lists the collection itself first; walking into that
+            // would come back to this same folder for ever.
+            if name == folder {
+                continue;
+            }
+            if entry.collection {
+                let last = name.rsplit('/').next().unwrap_or(&name);
+                if walk_into && (in_versions || last == crate::store::TRASH_FOLDER) {
+                    self.collect_files(&name, files, false)?;
+                }
+            } else if crate::cloud::engine::syncable(&name) {
+                files.push(RemoteFile {
+                    id: name.clone(),
+                    name,
+                    rev: entry.revision(),
+                });
+            }
+        }
+        Ok(())
+    }
 }
 
 impl Remote for WebDav {
@@ -337,46 +376,12 @@ impl Remote for WebDav {
         let mut files = Vec::new();
         for entry in entries {
             if entry.collection {
-                // A workspace folder, or `Versions` (which holds one folder
-                // per workspace itself).
+                // A workspace folder (with its `.deleted` trash) or
+                // `Versions` (one folder per workspace).
                 let Some(folder) = self.relative(&entry.href) else {
                     continue;
                 };
-                let url = format!("{}/", self.file_url(&folder));
-                for child in self.propfind(&url, 1)? {
-                    if child.collection {
-                        if folder.eq_ignore_ascii_case(crate::store::VERSIONS_FOLDER) {
-                            let Some(sub) = self.relative(&child.href) else {
-                                continue;
-                            };
-                            let sub_url = format!("{}/", self.file_url(&sub));
-                            for file in self.propfind(&sub_url, 1)? {
-                                if file.collection {
-                                    continue;
-                                }
-                                if let Some(name) = self.relative(&file.href) {
-                                    if crate::cloud::engine::syncable(&name) {
-                                        files.push(RemoteFile {
-                                            id: name.clone(),
-                                            name,
-                                            rev: file.revision(),
-                                        });
-                                    }
-                                }
-                            }
-                        }
-                        continue;
-                    }
-                    if let Some(name) = self.relative(&child.href) {
-                        if crate::cloud::engine::syncable(&name) {
-                            files.push(RemoteFile {
-                                id: name.clone(),
-                                name,
-                                rev: child.revision(),
-                            });
-                        }
-                    }
-                }
+                self.collect_files(&folder, &mut files, true)?;
             } else if let Some(name) = self.relative(&entry.href) {
                 // Notes at the top level (older versions kept them there).
                 if crate::cloud::engine::syncable(&name) {
@@ -494,6 +499,11 @@ pub fn normalise_url(url: &str) -> CloudResult<String> {
     }
     if parsed.host_str().is_none_or(str::is_empty) {
         return Err(CloudError::new("The address is missing a server name"));
+    }
+    if !parsed.username().is_empty() {
+        return Err(CloudError::new(
+            "The address should not contain a username. Enter it separately in the username field.",
+        ));
     }
     let mut base = parsed.to_string();
     // `Url` drops a trailing slash when the path is empty but keeps it
