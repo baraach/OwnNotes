@@ -15,9 +15,13 @@ use base64::Engine;
 use pbkdf2::pbkdf2_hmac;
 use sha2::Sha256;
 
+/// Encryption format version prefix.
 const PREFIX: &str = "enc1:";
+/// PBKDF2 iteration count for key derivation (OWASP recommended minimum).
 const ROUNDS: u32 = 120_000;
+/// Salt size in bytes for encryption.
 const SALT: usize = 16;
+/// Nonce size in bytes for AES-256-GCM.
 const NONCE: usize = 12;
 
 fn key(passcode: &str, salt: &[u8]) -> [u8; 32] {
