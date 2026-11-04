@@ -1,0 +1,7 @@
+/target
+**/target
+.DS_Store
+*.log
+settings.json
+sync-webdav.json
+app.json

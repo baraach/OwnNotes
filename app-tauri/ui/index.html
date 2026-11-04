@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>OwnNotes</title>
+    <link rel="stylesheet" href="app.css?v=8" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar" data-tauri-drag-region>
+        <span class="traffic-space" data-tauri-drag-region></span>
+        <button class="icon" id="toggle-sidebar" title="Show or hide the sidebar">
+          <svg viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></svg>
+        </button>
+        <button class="icon" id="undo" title="Undo (⌘Z)">
+          <svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+        </button>
+        <button class="icon" id="redo" title="Redo (⇧⌘Z)">
+          <svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg>
+        </button>
+        <label class="search-box">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg>
+          <input class="search" id="search" placeholder="Search" />
+          <button class="search-scope" id="search-scope" title="Search titles only">T</button>
+          <button class="search-scope" id="save-search" title="Save this search" hidden>＋</button>
+        </label>
+        <span class="spacer"></span>
+        <button class="icon" id="sync-now" title="Sync Notes">
+          <svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-13.7-5.6L4 7.6"/><path d="M4 4v3.6h3.6"/><path d="M4 13a8 8 0 0 0 13.7 5.6L20 16.4"/><path d="M20 20v-3.6h-3.6"/></svg>
+        </button>
+        <span class="pill" id="sync-pill"><i></i><span>On this device</span></span>
+        <button class="primary" id="new-note">New Note</button>
+        <button class="icon big" id="lock" title="Lock the app">
+          <svg viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>
+        </button>
+        <button class="icon big" id="sticky" title="Keep window on top">
+          <svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5.5A1.5 1.5 0 0 0 14.5 4h-9A1.5 1.5 0 0 0 4 5.5v9A1.5 1.5 0 0 0 5.5 16H8"/></svg>
+        </button>
+        <button class="icon big" id="open-settings" title="Settings">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+        </button>
+      </header>
+
+      <main class="panes">
+        <nav class="sidebar" id="sidebar">
+          <div class="pane-head">
+            <span class="pane-title">OwnNotes</span>
+            <button class="space-button" id="space" title="Space">
+              <span id="space-name">Notes</span>
+              <i class="caret"></i>
+            </button>
+          </div>
+          <div class="sidebar-scroll">
+            <div class="nav" id="nav"></div>
+            <div class="section-title" id="quick-title" hidden>Quick Access</div>
+            <div class="nav" id="quick"></div>
+            <div class="section-title">
+              <svg class="chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+              <span>Notebooks</span>
+              <button class="tiny" id="new-notebook" title="New notebook">+</button>
+            </div>
+            <div class="nav" id="notebooks" data-no-i18n></div>
+            <div class="nav links" id="templates-row"></div>
+            <div class="nav links" id="trash-row"></div>
+            <div class="section-title" id="saved-title" hidden>
+              <svg class="chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+              <span>Saved searches</span>
+            </div>
+            <div class="nav" id="saved" data-no-i18n></div>
+            <div class="section-title" id="tags-title" hidden>
+              <svg class="chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+              <span>Tags</span>
+            </div>
+            <div class="nav" id="tags" data-no-i18n></div>
+          </div>
+        </nav>
+
+        <section class="list" id="list-pane">
+          <div class="list-head pane-head">
+            <h2 id="list-title">All Notes</h2>
+            <span class="count" id="list-count">0</span>
+            <span class="spacer"></span>
+            <label class="icon sort-wrap" title="Sort notes">
+              <svg viewBox="0 0 24 24"><path d="M8 4v16"/><path d="m4 8 4-4 4 4"/><path d="M16 20V4"/><path d="m20 16-4 4-4-4"/></svg>
+              <select id="sort" class="sort">
+                <option value="updated">Last edited</option>
+                <option value="created">Date created</option>
+                <option value="title">Title</option>
+                <option value="manual">Manual</option>
+              </select>
+            </label>
+            <button class="icon" id="new-note-2" title="New note">
+              <svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+            </button>
+          </div>
+          <div class="cards" id="cards" data-no-i18n></div>
+        </section>
+
+        <section class="editor" id="editor-pane">
+          <div class="editor-tools pane-head">
+            <button class="icon" id="pin" title="Pin"><svg viewBox="0 0 24 24"><path d="M12 16v5"/><path d="M9 3.5h6l-1 5.5 3 3v2H7v-2l3-3z"/></svg></button>
+            <button class="icon" id="star" title="Favorite"><svg viewBox="0 0 24 24"><path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z"/></svg></button>
+            <button class="icon" id="export" title="Export (⌘E)"><svg viewBox="0 0 24 24"><path d="M14 4h6v6"/><path d="M20 4 11 13"/><path d="M18 14v4.5A1.5 1.5 0 0 1 16.5 20h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10"/></svg></button>
+            <button class="icon" id="history" title="Version history"><svg viewBox="0 0 24 24"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"/><path d="M3.5 4v4.5H8"/><path d="M12 8v4l3 2"/></svg></button>
+            <button class="icon" id="trash-note" title="Move to Trash"><svg viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M9 7V4.5h6V7"/><path d="M6 7l1 13h10l1-13"/></svg></button>
+            <span class="spacer"></span>
+            <button class="icon" id="editor-menu" title="More">
+              <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4" class="dot"/><circle cx="12" cy="12" r="1.4" class="dot"/><circle cx="19" cy="12" r="1.4" class="dot"/></svg>
+            </button>
+            <button class="icon" id="focus" title="Focus mode (⌘⇧F)"><svg viewBox="0 0 24 24"><path d="M14 4h6v6"/><path d="M20 4l-6 6"/><path d="M10 20H4v-6"/><path d="m4 20 6-6"/></svg></button>
+          </div>
+          <input class="title" id="title" dir="auto" placeholder="Untitled" />
+          <div class="body" id="body" data-no-i18n contenteditable="true" spellcheck="false" dir="auto"></div>
+          <div class="format-bar">
+            <button data-x="insert" title="Insert… (or type /)"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3" class="filled"/><path d="M12 8.5v7" class="on-fill"/><path d="M8.5 12h7" class="on-fill"/></svg></button>
+            <button class="drop" id="heading-button" title="Heading #1,2,3,4,5,6"><b class="glyph-h">H</b><i class="caret"></i></button>
+            <button data-cmd="bold" title="Bold (⌘B)"><svg viewBox="0 0 24 24"><path d="M7 5h6a3.5 3.5 0 0 1 0 7H7z"/><path d="M7 12h7a3.5 3.5 0 0 1 0 7H7z"/></svg></button>
+            <button data-cmd="italic" title="Italic (⌘I)"><svg viewBox="0 0 24 24"><path d="M10 5h8"/><path d="M6 19h8"/><path d="M14 5l-4 14"/></svg></button>
+            <button data-cmd="underline" title="Underline (⌘U)"><svg viewBox="0 0 24 24"><path d="M7 4v7a5 5 0 0 0 10 0V4"/><path d="M5 20h14"/></svg></button>
+            <button data-cmd="strikeThrough" title="Strikethrough"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M16 7.5C15.4 5.6 13.9 5 12 5c-2.4 0-4 1.2-4 3 0 1.4 1 2.3 2.6 2.8"/><path d="M8 16.5c.6 1.9 2.1 2.5 4 2.5 2.4 0 4-1.2 4-3 0-.6-.2-1.1-.5-1.5"/></svg></button>
+            <button class="drop" id="text-colour" title="Text colour"><svg viewBox="0 0 24 24"><path d="m7 16 5-12 5 12"/><path d="M8.7 12h6.6"/><rect x="4" y="19" width="16" height="2.5" rx="1" class="colour-bar"/></svg><i class="caret"></i></button>
+            <button class="drop" data-hl="1" title="Highlight colour"><svg viewBox="0 0 24 24"><path d="m14 4 6 6-8.5 8.5H6v-5.5z"/><path d="m11 7 6 6"/><rect x="4" y="19.5" width="16" height="2.5" rx="1" class="hl-bar"/></svg><i class="caret"></i></button>
+            <span class="sep"></span>
+            <button id="checklist" title="Checklist"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg></button>
+            <button data-cmd="insertUnorderedList" title="Bulleted list"><svg viewBox="0 0 24 24"><path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/><circle cx="4.5" cy="6" r=".9" class="dot"/><circle cx="4.5" cy="12" r=".9" class="dot"/><circle cx="4.5" cy="18" r=".9" class="dot"/></svg></button>
+            <button data-cmd="insertOrderedList" title="Numbered list"><svg viewBox="0 0 24 24"><path d="M10 6h10"/><path d="M10 12h10"/><path d="M10 18h10"/><path d="M4 5l1.5-1v5"/><path d="M4 14.5c0-1 .8-1.5 1.5-1.5S7 13.5 7 14.3c0 1.2-3 1.9-3 3.7h3"/></svg></button>
+            <button data-cmd="formatBlock" data-value="blockquote" title="Quote"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="3"/><path d="M9 10v3.5"/><path d="M13.5 10v3.5"/></svg></button>
+            <span class="sep"></span>
+            <button data-cmd="justifyLeft" title="Align left"><svg viewBox="0 0 24 24"><path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h14"/></svg></button>
+            <button data-cmd="justifyCenter" title="Align centre"><svg viewBox="0 0 24 24"><path d="M4 6h16"/><path d="M7 12h10"/><path d="M5 18h14"/></svg></button>
+            <button data-cmd="justifyRight" title="Align right"><svg viewBox="0 0 24 24"><path d="M4 6h16"/><path d="M10 12h10"/><path d="M6 18h14"/></svg></button>
+            <button data-cmd="justifyFull" title="Justify"><svg viewBox="0 0 24 24"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></svg></button>
+            <span class="sep"></span>
+            <button data-cmd="undo" title="Undo (⌘Z)"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
+            <button data-cmd="redo" title="Redo (⌘⇧Z)"><svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button>
+            <span class="sep"></span>
+            <button data-x="code" title="Inline code"><svg viewBox="0 0 24 24"><path d="m8 7-5 5 5 5"/><path d="m16 7 5 5-5 5"/><path d="m13.5 5-3 14"/></svg></button>
+            <button data-x="codeblock" title="Code block"><svg viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="16" rx="3"/><path d="m9.5 9.5-2.5 2.5 2.5 2.5"/><path d="m14.5 9.5 2.5 2.5-2.5 2.5"/></svg></button>
+            <button id="note-link" title="Link to a note"><svg viewBox="0 0 24 24"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/></svg></button>
+            <button data-x="divider" title="Divider"><svg viewBox="0 0 24 24"><path d="M4 12h16"/><path d="M7 7h10" class="faint"/><path d="M7 17h10" class="faint"/></svg></button>
+            <button data-x="table" title="Table"><svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 10h17"/><path d="M3.5 15h17"/><path d="M10 4.5v15"/></svg></button>
+            <button id="collapse" title="Collapsible section (⌘/)"><svg viewBox="0 0 24 24"><path d="m5 8 3 3 3-3"/><path d="M14 9.5h6"/><path d="M5 15h15"/><path d="M5 19h10"/></svg></button>
+            <button data-x="file" title="Add an image or file"><svg viewBox="0 0 24 24"><path d="m20 11.5-8.2 8.2a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8"/></svg></button>
+            <button data-x="math" title="Math formula (LaTeX)"><i class="glyph-fx">f(x)</i></button>
+          </div>
+          <div class="editor-foot">
+            <button class="notebook-chip" id="chip-button" title="Move to another notebook">
+              <svg viewBox="0 0 24 24"><rect x="5" y="3.5" width="13" height="17" rx="2"/><path d="M9 3.5v17"/><path d="M18 15.5h2.5"/><path d="M19.25 14.25v2.5"/></svg>
+              <span id="chip"></span>
+            </button>
+            <span id="words">0 words</span>
+            <span class="spacer"></span>
+            <button class="icon text-style" id="text-style" title="Font and text size">Aa</button>
+            <button class="icon" id="print" title="Print (⌘P)"><svg viewBox="0 0 24 24"><path d="M7 9V4h10v5"/><rect x="4" y="9" width="16" height="7" rx="2"/><path d="M7 14h10v6H7z"/></svg></button>
+            <button class="icon" id="info" title="Info"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5"/><path d="M12 8h.01"/></svg></button>
+          </div>
+        </section>
+
+        <aside class="info" id="info-panel" hidden>
+          <div class="info-head">Info <button class="tiny" id="info-close">×</button></div>
+          <div class="info-body" id="info-body" data-no-i18n></div>
+        </aside>
+      </main>
+    </div>
+    <div class="modal" id="settings-modal" hidden>
+      <div class="sheet wide">
+        <div class="settings-body">
+          <nav class="settings-tabs">
+            <button data-tab="sync" class="active">Sync &amp; Storage</button>
+            <button data-tab="themes">Themes</button>
+            <button data-tab="general">General</button>
+            <button data-tab="editor">Editor</button>
+            <button data-tab="about">About</button>
+          </nav>
+          <div class="settings-pages">
+            <section data-page="sync">
+              <h3>Sync &amp; Storage</h3>
+              <p class="hint">Notes live in a folder you own. Point it at any WebDAV server.</p>
+              <label>Server address <input id="s-url" placeholder="https://example.com/dav/notes" /></label>
+              <label>Username <input id="s-user" autocomplete="off" /></label>
+              <label>Password <input id="s-pass" type="password" autocomplete="off" placeholder="Leave empty to keep the saved one" /></label>
+              <div class="modal-row">
+                <button class="primary" id="s-connect">Connect</button>
+                <button class="ghost" id="s-save">Save</button>
+                <span class="spacer"></span>
+                <span class="hint" id="s-connected"></span>
+              </div>
+              <p class="hint" id="s-status"></p>
+
+              <h4>Automatic sync</h4>
+              <label class="check"><input type="checkbox" id="s-on-change" /> Sync a few seconds after I change a note</label>
+              <div class="option-row">
+                <span>Check for changes from other devices</span>
+                <select id="s-every">
+                  <option value="1">Every minute</option>
+                  <option value="5">Every 5 minutes</option>
+                  <option value="15">Every 15 minutes</option>
+                  <option value="30">Every 30 minutes</option>
+                  <option value="60">Every hour</option>
+                  <option value="0">Only when I sync</option>
+                </select>
+              </div>
+              <div class="modal-row">
+                <button class="ghost" id="s-sync">Sync now</button>
+              </div>
+              <p class="hint">OwnNotes also syncs when it opens and when you come back to its window.</p>
+            </section>
+
+            <section data-page="themes" hidden>
+              <h3>Themes</h3>
+              <p class="hint">Appearance and accent colour.</p>
+              <div class="segmented" id="theme-mode">
+                <button data-mode="Light">Light</button>
+                <button data-mode="Dark">Dark</button>
+                <button data-mode="System">System</button>
+              </div>
+              <div class="accent-row" id="accent-row"></div>
+              <p class="hint">Named looks</p>
+              <div class="theme-row" id="theme-looks"></div>
+            </section>
+
+            <section data-page="general" hidden>
+              <h3>General</h3>
+              <label class="check"><input type="checkbox" id="g-counts" /> Show counts in the sidebar</label>
+              <label class="check"><input type="checkbox" id="g-compact" /> Compact notes list</label>
+              <label class="check"><input type="checkbox" id="g-subnotes" /> Show notes from sub-notebooks in a notebook</label>
+              <label>Dropping a note on a notebook
+                <select id="g-drop" class="select">
+                  <option value="move">Moves it there</option>
+                  <option value="add">Adds it to that notebook too</option>
+                </select>
+              </label>
+              <label>Language
+                <select id="g-language" class="select">
+                  <option value="en">English</option>
+                  <option value="ar">العربية</option>
+                  <option value="tr">Türkçe</option>
+                  <option value="de">Deutsch</option>
+                  <option value="pl">Polski</option>
+                  <option value="fr">Français</option>
+                  <option value="es">Español</option>
+                </select>
+              </label>
+
+              <h4>Notebooks</h4>
+              <div id="g-notebooks"></div>
+              <h4>Export</h4>
+              <p class="hint">Everything, in one go. Markdown is a single file; HTML is a folder with one file per note.</p>
+              <div class="modal-row">
+                <button class="ghost" id="export-md">Export all as Markdown…</button>
+                <button class="ghost" id="export-html">Export all as HTML…</button>
+              </div>
+              <p class="hint" id="export-path"></p>
+
+              <h4>Import</h4>
+              <p class="hint">Bring notes in from another app. They land in the notebook you have selected, or the first one.</p>
+              <div class="modal-row">
+                <button class="ghost" id="import-enex">Evernote export (.enex)…</button>
+                <button class="ghost" id="import-md">Markdown files…</button>
+                <button class="ghost" id="import-simplenote">Simplenote backup…</button>
+                <button class="ghost" id="import-bear">Bear archive…</button>
+                <button class="ghost" id="import-apple" title="Reads your notes straight from the Notes app on this Mac">Apple Notes</button>
+              </div>
+
+              <h4>Backups</h4>
+              <label>How often
+                <select id="g-backup-hours" class="select">
+                  <option value="6">Every 6 hours</option>
+                  <option value="24">Once a day</option>
+                  <option value="72">Every 3 days</option>
+                  <option value="168">Once a week</option>
+                </select>
+              </label>
+              <label>How many to keep
+                <select id="g-backup-keep" class="select">
+                  <option value="3">3</option>
+                  <option value="7">7</option>
+                  <option value="14">14</option>
+                  <option value="30">30</option>
+                </select>
+              </label>
+              <div class="modal-row">
+                <button class="ghost" id="g-backup">Back up now</button>
+                <button class="ghost" id="g-backup-open">Show the backup folder</button>
+              </div>
+              <p class="hint" id="g-backup-path">A copy of your notes, kept on this computer.</p>
+              <h4>Version history</h4>
+              <p class="hint">Older versions are kept on this computer (and synced).</p>
+              <div class="modal-row">
+                <button class="ghost danger" id="g-clear-versions">Delete all version history</button>
+              </div>
+
+              <h4 class="danger">Danger zone</h4>
+              <p class="hint">Delete every note, the sync history and the WebDAV password from this computer. Notes on the server are left alone.</p>
+              <div class="modal-row">
+                <button class="ghost danger" id="g-delete">Delete everything…</button>
+              </div>
+            </section>
+
+            <section data-page="editor" hidden>
+              <h3>Editor</h3>
+              <p class="hint">Text size</p>
+              <div class="size-slider">
+                <input type="range" id="e-size" min="12" max="22" step="1" />
+                <span id="e-size-label"></span>
+              </div>
+            
+              <label class="check"><input type="checkbox" id="e-markdown" /> Type Markdown that converts as you go</label>
+              <p class="hint">Typeface</p>
+              <select id="e-font" class="select">
+                <option value="">System</option>
+                <option value="serif">Serif</option>
+                <option value="rounded">Rounded</option>
+                <option value="mono">Monospace</option>
+              </select>
+              <p class="hint">Spelling</p>
+              <select id="e-spell" class="select">
+                <option value="">Off</option>
+                <option value="en">English</option>
+                <option value="tr">Turkish</option>
+                <option value="ar">Arabic</option>
+                <option value="de">German</option>
+                <option value="fr">French</option>
+                <option value="es">Spanish</option>
+              </select>
+              <p class="hint">New pictures are inserted at</p>
+              <select id="e-image" class="select">
+                <option value="100">Full width</option>
+                <option value="75">75%</option>
+                <option value="50">50%</option>
+                <option value="35">35%</option>
+              </select>
+</section>
+
+            <section data-page="about" hidden>
+              <h3>OwnNotes</h3>
+              <p class="hint">A quiet place for your notes. Files you can read, a server you own.</p>
+              <p class="hint">Version 1.0 · Rust + WebKit</p>
+              <h4>Keyboard</h4>
+              <div class="keys">
+                <span><kbd>⌘N</kbd> New note</span>
+                <span><kbd>⌘S</kbd> Save now</span>
+                <span><kbd>⌘K</kbd> Jump to a note</span>
+                <span><kbd>⌘J</kbd> Switch space</span>
+                <span><kbd>⌘F</kbd> Find in this note</span>
+                <span><kbd>⇧⌘F</kbd> Focus mode</span>
+                <span><kbd>⌘E</kbd> Export</span>
+                <span><kbd>⌘P</kbd> Print or save as PDF</span>
+                <span><kbd>⌥⌘P</kbd> Save as a picture</span>
+                <span><kbd>⇧⌘P</kbd> Pin to top</span>
+                <span><kbd>⇧⌘S</kbd> Quick Access</span>
+                <span><kbd>⌘⌫</kbd> Trash or restore</span>
+                <span><kbd>/</kbd> Insert menu (in a note)</span>
+                <span><kbd>⌘/</kbd> Collapsible section</span>
+              </div>
+            </section>
+          </div>
+        </div>
+        <div class="modal-row">
+          <span class="spacer"></span>
+          <button class="ghost" id="s-close">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal scrim" id="first-sync" hidden>
+      <div class="decision-sheet">
+        <h2>Merge or keep one side?</h2>
+        <p class="decision-summary" id="first-sync-text"></p>
+
+        <button class="choice-card" data-resolution="merge" data-choice="merge">
+          <span class="tile"><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg></span>
+          <span class="text">
+            <b>Merge notes</b>
+            <i>Keeps every note from both sides.</i>
+          </span>
+          <span class="radio"></span>
+        </button>
+
+        <button class="choice-card" data-resolution="local" data-choice="local">
+          <span class="tile"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="11" rx="2"/><path d="M9 20h6"/><path d="M12 16v4"/></svg></span>
+          <span class="text">
+            <b>Keep local notes</b>
+            <i>This computer's notes replace the ones on the server.</i>
+          </span>
+          <span class="radio"></span>
+        </button>
+
+        <button class="choice-card" data-resolution="remote" data-choice="remote">
+          <span class="tile"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 7h.01"/><path d="M7 17h.01"/></svg></span>
+          <span class="text">
+            <b>Keep server notes</b>
+            <i>The server's notes replace the ones on this computer.</i>
+          </span>
+          <span class="radio"></span>
+        </button>
+
+        <div class="decision-foot">
+          <button class="ghost" id="decision-later">Decide later</button>
+          <span class="spacer"></span>
+          <button class="primary" id="decision-continue">
+            <svg viewBox="0 0 24 24" class="tick"><path d="m5 13 4 4L19 7"/></svg>
+            Continue
+          </button>
+        </div>
+        <p class="decision-detail" id="decision-detail"></p>
+      </div>
+    </div>
+
+    <div class="modal" id="tour" hidden>
+      <div class="sheet tour-sheet">
+        <h3>Welcome to OwnNotes</h3>
+        <p class="hint">Your notes are files in a folder you own. Three things worth knowing:</p>
+        <ol class="tour-list">
+          <li><b>Write.</b> Press <kbd>⌘N</kbd>, type, and it saves itself.</li>
+          <li><b>Sync.</b> Point Settings → Sync &amp; Storage at any WebDAV folder — Nextcloud, Koofr, a NAS. Nothing leaves your control.</li>
+          <li><b>Find.</b> <kbd>⌘K</kbd> jumps to a note, <kbd>⌘F</kbd> searches inside one.</li>
+        </ol>
+        <div class="modal-row">
+          <button class="ghost" id="tour-later">Later</button>
+          <span class="spacer"></span>
+          <button class="primary" id="tour-sync">Set up sync</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" id="export-modal" hidden>
+      <div class="sheet export-sheet">
+        <h3 class="export-title">Export</h3>
+        <div class="export-row">
+          <span class="export-name">Export to Text</span>
+          <button class="export-go" data-format="txt">Export</button>
+        </div>
+        <div class="export-row column">
+          <div class="export-line">
+            <span class="export-name">Export to HTML</span>
+            <button class="export-go" data-format="html">Export</button>
+          </div>
+          <label class="export-option">Collapsible Section
+            <select id="export-html-fold" class="select">
+              <option value="expand">Expand all</option>
+              <option value="collapse">Collapse all</option>
+            </select>
+          </label>
+        </div>
+        <div class="export-row column">
+          <div class="export-line">
+            <span class="export-name">Export to PDF</span>
+            <button class="export-go" data-format="pdf">Export</button>
+          </div>
+          <label class="export-option">Orientation
+            <select id="export-pdf-orient" class="select">
+              <option value="portrait">Portrait</option>
+              <option value="landscape">Landscape</option>
+            </select>
+          </label>
+          <label class="export-option">Collapsible Section
+            <select id="export-pdf-fold" class="select">
+              <option value="expand">Expand all</option>
+              <option value="collapse">Collapse all</option>
+            </select>
+          </label>
+        </div>
+        <div class="export-row">
+          <span class="export-name">Export to Picture</span>
+          <button class="export-go" data-format="png">Export</button>
+        </div>
+        <div class="export-row column">
+          <div class="export-line">
+            <span class="export-name">Export to Markdown</span>
+            <button class="export-go" data-format="md">Export</button>
+          </div>
+          <label class="check export-option">
+            <input type="checkbox" id="export-extras" />
+            Includes additional data such as creation date, updated date, and notebook names
+          </label>
+        </div>
+        <div class="modal-row">
+          <span class="spacer"></span>
+          <button class="ghost" id="export-close">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" id="history-modal" hidden>
+      <div class="sheet">
+        <h3>Version history</h3>
+        <p class="hint">Older versions are kept on this computer and on your server.</p>
+        <div class="versions" id="version-list"></div>
+        <div class="modal-row">
+          <button class="ghost danger" id="h-clear">Clear this note's history</button>
+          <span class="spacer"></span>
+          <button class="ghost" id="h-close">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" id="lock-screen" hidden>
+      <div class="sheet small">
+        <h3>OwnNotes is locked</h3>
+        <p class="hint">Enter your passcode to open your notes.</p>
+        <input id="lock-input" type="password" placeholder="Passcode" autofocus />
+        <div class="modal-row">
+          <span class="spacer"></span>
+          <button class="primary" id="lock-open">Unlock</button>
+        </div>
+        <p class="hint" id="lock-error"></p>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" hidden></div>
+    <script src="i18n.js?v=10"></script>
+    <script src="i18n.ar.js?v=10"></script>
+    <script src="i18n.tr.js?v=10"></script>
+    <script src="i18n.de.js?v=10"></script>
+    <script src="i18n.pl.js?v=10"></script>
+    <script src="i18n.fr.js?v=10"></script>
+    <script src="i18n.es.js?v=10"></script>
+    <script src="dialogs.js?v=10"></script>
+    <script src="app.js?v=10"></script>
+    <script src="editor.js?v=10"></script>
+  </body>
+</html>
