@@ -155,7 +155,7 @@ pub fn looks_like_markdown(body: &str) -> bool {
         && !body.contains("<h1>")
         && !body.contains("<ul>")
         && !body.contains("<blockquote>")
-        && body.contains(|c: char| c == '#' || c == '*' || c == '`' || c == ']')
+        && body.contains(['#', '*', '`', ']'])
 }
 
 fn escape(text: &str) -> String {
