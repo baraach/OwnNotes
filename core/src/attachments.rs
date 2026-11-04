@@ -141,7 +141,7 @@ pub fn save(data_dir: &Path, note_id: u64, original: &str, bytes: &[u8]) -> io::
 
 fn write_atomic(folder: &Path, name: &str, bytes: &[u8]) -> io::Result<()> {
     fs::create_dir_all(folder)?;
-    let tmp = folder.join(format!(".{name}.tmp"));
+    let tmp = folder.join(format!(".{name}.tmp.{}", std::process::id()));
     fs::write(&tmp, bytes)?;
     fs::rename(&tmp, folder.join(name))
 }

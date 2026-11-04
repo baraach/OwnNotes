@@ -83,6 +83,7 @@ impl Store {
             library_written: String::new(),
         };
         let mut problems = Vec::new();
+        sweep_temp_files(&store.notes_dir());
 
         let settings = match fs::read_to_string(store.dir.join("settings.json")) {
             Ok(text) => serde_json::from_str(&text).unwrap_or_else(|e| {
@@ -687,8 +688,46 @@ fn note_files(root: &Path) -> Vec<(PathBuf, String)> {
     out
 }
 
+/// A write that was killed between its temporary file and the rename leaves
+/// the temporary file behind. Clearing them at startup is safe: anything that
+/// old belongs to a process that is gone.
+fn sweep_temp_files(root: &Path) {
+    fn walk(dir: &Path, depth: usize) {
+        if depth > 2 {
+            return;
+        }
+        let Ok(entries) = fs::read_dir(dir) else { return };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                walk(&path, depth + 1);
+                continue;
+            }
+            let name = entry.file_name().to_string_lossy().to_string();
+            // Temp files end in `.tmp.<pid>` (e.g. `note-123.tmp.4242`);
+            // a plain ".tmp." anywhere in the name is not ours.
+            let is_temp = name
+                .rsplit_once(".tmp.")
+                .is_some_and(|(_, pid)| !pid.is_empty() && pid.bytes().all(|b| b.is_ascii_digit()));
+            if !is_temp {
+                continue;
+            }
+            let old = entry
+                .metadata()
+                .and_then(|m| m.modified())
+                .ok()
+                .and_then(|when| when.elapsed().ok())
+                .is_some_and(|age| age.as_secs() > 60);
+            if old {
+                let _ = fs::remove_file(&path);
+            }
+        }
+    }
+    walk(root, 0);
+}
+
 fn write_atomic(path: &Path, text: &str) -> io::Result<()> {
-    let tmp = path.with_extension("tmp");
+    let tmp = path.with_extension(format!(".tmp.{}", std::process::id()));
     fs::write(&tmp, text)?;
     fs::rename(&tmp, path)
 }
@@ -1096,5 +1135,67 @@ mod tests {
         assert_eq!(loaded.sync.webdav_user, "me");
         assert!(loaded.sync.webdav_password.is_empty());
         let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_trashed_note_moves_into_the_deleted_folder() {
+        let dir = temp_dir("trash-folder");
+        let (mut store, mut doc, _, _) = Store::open_at(dir.clone());
+        doc.notebooks = vec![Notebook { parent: None, id: 7, name: "Work".into(), color: 0 }];
+        let id = doc.add_note(7, "A note", "body");
+        store.save(&doc).unwrap();
+        assert!(store.notes_dir().join(note_rel_path("Work", id, false)).exists());
+
+        doc.note_mut(id).unwrap().trashed = true;
+        store.save(&doc).unwrap();
+        assert!(!store.notes_dir().join(note_rel_path("Work", id, false)).exists());
+        assert!(store.notes_dir().join(note_rel_path("Work", id, true)).exists());
+
+        // Read back, it knows it is in the trash whatever the header says.
+        // Deleting it for good takes the empty folders with it.
+        let (mut store, mut reloaded, _, _) = Store::open_at(dir.clone());
+        reloaded.notes.retain(|n| n.id != id);
+        store.save(&reloaded).unwrap();
+        assert!(!store.notes_dir().join("Work/.deleted").exists());
+        assert!(!store.notes_dir().join("Work").exists());
+    }
+
+    #[test]
+    fn a_notebook_called_deleted_is_not_the_trash() {
+        let dir = temp_dir("notebook-named-deleted");
+        let (mut store, mut doc, _, _) = Store::open_at(dir.clone());
+        doc.notebooks = vec![Notebook { parent: None, id: 9, name: "Deleted".into(), color: 0 }];
+        let id = doc.add_note(9, "Still a note", "body");
+        store.save(&doc).unwrap();
+
+        let (_, reloaded, _, _) = Store::open_at(dir);
+        let note = reloaded.notes.iter().find(|n| n.id == id).unwrap();
+        assert!(!note.trashed, "a notebook that happens to be called Deleted is not the trash");
+        assert_eq!(reloaded.notebooks[0].name, "Deleted");
+    }
+
+    #[test]
+    fn a_dead_temporary_file_is_swept_at_startup() {
+        let dir = temp_dir("temp-sweep");
+        let (mut store, mut doc, _, _) = Store::open_at(dir.clone());
+        doc.notebooks = vec![Notebook { parent: None, id: 2, name: "Work".into(), color: 0 }];
+        doc.add_note(2, "A note", "body");
+        store.save(&doc).unwrap();
+
+        // Left behind by a write that never reached its rename.
+        let folder = store.notes_dir().join("Work");
+        let stale = folder.join("note-1.html.tmp.4242");
+        fs::write(&stale, "<p>half a note</p>").unwrap();
+        let long_ago = std::time::SystemTime::now() - std::time::Duration::from_secs(600);
+        let handle = fs::File::options().write(true).open(&stale).unwrap();
+        handle.set_modified(long_ago).unwrap();
+
+        // A file that merely mentions ".tmp." is a note, not a leftover.
+        let decoy = folder.join("my.tmp.backup.html");
+        fs::write(&decoy, "<p>keep me</p>").unwrap();
+
+        Store::open_at(dir);
+        assert!(!stale.exists(), "an abandoned temporary file is cleared on open");
+        assert!(decoy.exists(), "a file named like a note is left alone");
     }
 }
