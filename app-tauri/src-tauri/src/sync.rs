@@ -84,7 +84,7 @@ impl App {
             let content = store::render_note(note);
             for notebook in self.doc.notebooks_of(note) {
                 files.push(LocalFile {
-                    name: store::note_rel_path(self.doc.notebook_name(notebook), note.id),
+                    name: store::note_rel_path(self.doc.notebook_name(notebook), note.id, note.trashed),
                     content: content.clone(),
                 });
             }
@@ -163,7 +163,21 @@ impl App {
                 // (or its notebook was renamed) — it wasn't deleted. A local
                 // note is only ever listed under its own path, so any other
                 // deleted name really means the note is gone.
-                if arrived.contains(&id) {
+                // The note's file may simply have moved — into the trash
+                // folder, to another notebook, or because its notebook was
+                // renamed. It is only gone when its current path is the one
+                // that vanished.
+                let moved = self
+                    .doc
+                    .note(id)
+                    .is_some_and(|note| {
+                        store::note_rel_path(
+                            self.doc.notebook_name(note.notebook_id),
+                            note.id,
+                            note.trashed,
+                        ) != name.as_str()
+                    });
+                if arrived.contains(&id) || moved {
                     continue;
                 }
                 self.doc.notes.retain(|note| note.id != id);

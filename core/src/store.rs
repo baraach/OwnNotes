@@ -83,6 +83,7 @@ impl Store {
             library_written: String::new(),
         };
         let mut problems = Vec::new();
+        sweep_temp_files(&store.notes_dir());
 
         let settings = match fs::read_to_string(store.dir.join("settings.json")) {
             Ok(text) => serde_json::from_str(&text).unwrap_or_else(|e| {
@@ -127,6 +128,11 @@ impl Store {
                         // already loaded knows the whole list of notebooks.
                         store.copies.insert(rel, render_note(&note));
                         continue;
+                    }
+                    // Notes in the Deleted folder are marked as trashed.
+                    let mut note = note;
+                    if is_in_trash(&rel) {
+                        note.trashed = true;
                     }
                     store.written.insert(note.id, (rel, render_note(&note)));
                     notes.push(note);
@@ -179,7 +185,7 @@ impl Store {
     /// treat the copy as a stale location and delete it.
     fn settle_copies(&mut self, doc: &Document) {
         for note in &doc.notes {
-            let own = note_rel_path(doc.notebook_name(note.notebook_id), note.id);
+            let own = note_rel_path(doc.notebook_name(note.notebook_id), note.id, note.trashed);
             let Some((loaded, text)) = self.written.get(&note.id).cloned() else { continue };
             if loaded == own {
                 continue;
@@ -228,10 +234,21 @@ impl Store {
     }
 
     /// Drop the notebook folder once its last note is gone.
+    /// Drop empty folders up the tree, stopping at the notes root. A note in
+    /// `Work/.deleted/` leaves both `.deleted` and `Work` to be cleaned if
+    /// they are empty.
     fn remove_empty_folder(&self, note_path: &Path) {
-        let Some(parent) = note_path.parent() else { return };
-        if parent != self.notes_dir() {
-            let _ = fs::remove_dir(parent);
+        let notes = self.notes_dir();
+        let mut dir = note_path.parent();
+        while let Some(d) = dir {
+            if d == notes {
+                break;
+            }
+            if fs::remove_dir(d).is_err() {
+                // Not empty, or already gone — stop climbing.
+                break;
+            }
+            dir = d.parent();
         }
     }
 
@@ -241,7 +258,7 @@ impl Store {
         fs::create_dir_all(self.notes_dir())?;
         let mut wanted: HashSet<String> = HashSet::new();
         for note in &doc.notes {
-            let rel = note_rel_path(doc.notebook_name(note.notebook_id), note.id);
+            let rel = note_rel_path(doc.notebook_name(note.notebook_id), note.id, note.trashed);
             let text = render_note(note);
             wanted.insert(rel.clone());
 
@@ -250,7 +267,7 @@ impl Store {
                 if other == note.notebook_id {
                     continue;
                 }
-                let copy_rel = note_rel_path(doc.notebook_name(other), note.id);
+                let copy_rel = note_rel_path(doc.notebook_name(other), note.id, note.trashed);
                 wanted.insert(copy_rel.clone());
                 if self.copies.get(&copy_rel) == Some(&text) {
                     continue;
@@ -374,16 +391,31 @@ pub fn workspace_folder(name: &str) -> String {
 }
 
 /// Where a note lives, relative to the notes folder and to the WebDAV folder.
-pub fn note_rel_path(notebook_name: &str, id: u64) -> String {
+pub fn note_rel_path(notebook_name: &str, id: u64, trashed: bool) -> String {
     let folder = workspace_folder(notebook_name);
-    if folder.trim().is_empty() {
-        note_file_name(id)
+    let base_path = if folder.trim().is_empty() {
+        String::new()
     } else {
-        format!("{folder}/{}", note_file_name(id))
-    }
+        format!("{folder}/")
+    };
+    let subfolder = if trashed { TRASH_FOLDER.to_owned() + "/" } else { String::new() };
+    format!("{base_path}{subfolder}{}", note_file_name(id))
 }
 
 pub const LIBRARY_FILE: &str = "library.json";
+
+/// The folder where trashed notes are stored.
+/// The folder trashed notes move into. A notebook can never be named this:
+/// `workspace_folder` trims leading dots, so ".deleted" is not reachable
+/// from a notebook name and can't collide with one.
+pub const TRASH_FOLDER: &str = ".deleted";
+
+/// Whether a path relative to the notes folder is in the trash.
+pub fn is_in_trash(rel_path: &str) -> bool {
+    rel_path
+        .split('/')
+        .any(|part| part == TRASH_FOLDER)
+}
 
 /// The notebooks inside a library.json text.
 pub fn parse_library(text: &str) -> Option<Vec<Notebook>> {
@@ -485,7 +517,7 @@ impl Store {
                 title: note.title,
             });
         }
-        out.sort_by(|a, b| b.at.cmp(&a.at));
+        out.sort_by_key(|a| std::cmp::Reverse(a.at));
         out
     }
 
@@ -687,8 +719,46 @@ fn note_files(root: &Path) -> Vec<(PathBuf, String)> {
     out
 }
 
+/// A write that was killed between its temporary file and the rename leaves
+/// the temporary file behind. Clearing them at startup is safe: anything that
+/// old belongs to a process that is gone.
+fn sweep_temp_files(root: &Path) {
+    fn walk(dir: &Path, depth: usize) {
+        if depth > 2 {
+            return;
+        }
+        let Ok(entries) = fs::read_dir(dir) else { return };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                walk(&path, depth + 1);
+                continue;
+            }
+            let name = entry.file_name().to_string_lossy().to_string();
+            // Temp files end in `.tmp.<pid>` (e.g. `note-123.tmp.4242`);
+            // a plain ".tmp." anywhere in the name is not ours.
+            let is_temp = name
+                .rsplit_once(".tmp.")
+                .is_some_and(|(_, pid)| !pid.is_empty() && pid.bytes().all(|b| b.is_ascii_digit()));
+            if !is_temp {
+                continue;
+            }
+            let old = entry
+                .metadata()
+                .and_then(|m| m.modified())
+                .ok()
+                .and_then(|when| when.elapsed().ok())
+                .is_some_and(|age| age.as_secs() > 60);
+            if old {
+                let _ = fs::remove_file(&path);
+            }
+        }
+    }
+    walk(root, 0);
+}
+
 fn write_atomic(path: &Path, text: &str) -> io::Result<()> {
-    let tmp = path.with_extension("tmp");
+    let tmp = path.with_extension(format!(".tmp.{}", std::process::id()));
     fs::write(&tmp, text)?;
     fs::rename(&tmp, path)
 }
@@ -915,8 +985,8 @@ mod tests {
 
         // Reopen, then pretend the disk listed the copy first.
         let (mut store, mut doc, _, _) = Store::open_at(dir.clone());
-        let own_rel = note_rel_path("Zeta", id);
-        let copy_rel = note_rel_path("Alpha", id);
+        let own_rel = note_rel_path("Zeta", id, false);
+        let copy_rel = note_rel_path("Alpha", id, false);
         let text = store.written.remove(&id).unwrap().1;
         store.copies.remove(&copy_rel);
         store.written.insert(id, (copy_rel.clone(), text.clone()));
@@ -1096,5 +1166,67 @@ mod tests {
         assert_eq!(loaded.sync.webdav_user, "me");
         assert!(loaded.sync.webdav_password.is_empty());
         let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_trashed_note_moves_into_the_deleted_folder() {
+        let dir = temp_dir("trash-folder");
+        let (mut store, mut doc, _, _) = Store::open_at(dir.clone());
+        doc.notebooks = vec![Notebook { parent: None, id: 7, name: "Work".into(), color: 0 }];
+        let id = doc.add_note(7, "A note", "body");
+        store.save(&doc).unwrap();
+        assert!(store.notes_dir().join(note_rel_path("Work", id, false)).exists());
+
+        doc.note_mut(id).unwrap().trashed = true;
+        store.save(&doc).unwrap();
+        assert!(!store.notes_dir().join(note_rel_path("Work", id, false)).exists());
+        assert!(store.notes_dir().join(note_rel_path("Work", id, true)).exists());
+
+        // Read back, it knows it is in the trash whatever the header says.
+        // Deleting it for good takes the empty folders with it.
+        let (mut store, mut reloaded, _, _) = Store::open_at(dir.clone());
+        reloaded.notes.retain(|n| n.id != id);
+        store.save(&reloaded).unwrap();
+        assert!(!store.notes_dir().join("Work/.deleted").exists());
+        assert!(!store.notes_dir().join("Work").exists());
+    }
+
+    #[test]
+    fn a_notebook_called_deleted_is_not_the_trash() {
+        let dir = temp_dir("notebook-named-deleted");
+        let (mut store, mut doc, _, _) = Store::open_at(dir.clone());
+        doc.notebooks = vec![Notebook { parent: None, id: 9, name: "Deleted".into(), color: 0 }];
+        let id = doc.add_note(9, "Still a note", "body");
+        store.save(&doc).unwrap();
+
+        let (_, reloaded, _, _) = Store::open_at(dir);
+        let note = reloaded.notes.iter().find(|n| n.id == id).unwrap();
+        assert!(!note.trashed, "a notebook that happens to be called Deleted is not the trash");
+        assert_eq!(reloaded.notebooks[0].name, "Deleted");
+    }
+
+    #[test]
+    fn a_dead_temporary_file_is_swept_at_startup() {
+        let dir = temp_dir("temp-sweep");
+        let (mut store, mut doc, _, _) = Store::open_at(dir.clone());
+        doc.notebooks = vec![Notebook { parent: None, id: 2, name: "Work".into(), color: 0 }];
+        doc.add_note(2, "A note", "body");
+        store.save(&doc).unwrap();
+
+        // Left behind by a write that never reached its rename.
+        let folder = store.notes_dir().join("Work");
+        let stale = folder.join("note-1.html.tmp.4242");
+        fs::write(&stale, "<p>half a note</p>").unwrap();
+        let long_ago = std::time::SystemTime::now() - std::time::Duration::from_secs(600);
+        let handle = fs::File::options().write(true).open(&stale).unwrap();
+        handle.set_modified(long_ago).unwrap();
+
+        // A file that merely mentions ".tmp." is a note, not a leftover.
+        let decoy = folder.join("my.tmp.backup.html");
+        fs::write(&decoy, "<p>keep me</p>").unwrap();
+
+        Store::open_at(dir);
+        assert!(!stale.exists(), "an abandoned temporary file is cleared on open");
+        assert!(decoy.exists(), "a file named like a note is left alone");
     }
 }

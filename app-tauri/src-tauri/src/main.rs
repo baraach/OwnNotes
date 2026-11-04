@@ -1612,7 +1612,11 @@ fn unsynced(state: State<'_, Mutex<App>>) -> Result<Vec<u64>, String> {
     let state_file = app.store.load_sync_state(&source);
     let mut out = Vec::new();
     for note in &app.doc.notes {
-        let rel = ownnotes_core::store::note_rel_path(app.doc.notebook_name(note.notebook_id), note.id);
+        let rel = ownnotes_core::store::note_rel_path(
+            app.doc.notebook_name(note.notebook_id),
+            note.id,
+            note.trashed,
+        );
         let text = ownnotes_core::store::render_note(note);
         let hash = ownnotes_core::cloud::engine::hash(&text);
         match state_file.files.get(&rel) {
