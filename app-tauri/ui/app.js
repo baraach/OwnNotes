@@ -2791,10 +2791,15 @@ for (const button of settingsTabs) {
   button.addEventListener("click", () => {
     const from = settingsTabs.findIndex((tab) => tab.dataset.tab === activeTab);
     const to = settingsTabs.indexOf(button);
-    if (to === from) return;
+    // On a phone the tabs are the Settings list, so the current tab still has
+    // to open its page. On desktop it is already showing, so there is nothing
+    // to do.
+    if (to === from && !settingsAtRoot) return;
     // Desktops slide the new sheet in from the side the tab sits on; the
     // platform layers decide how much motion to keep.
-    if (settingsPages) settingsPages.dataset.motion = to > from ? "forward" : "back";
+    if (settingsPages && to !== from) {
+      settingsPages.dataset.motion = to > from ? "forward" : "back";
+    }
     activeTab = button.dataset.tab;
     settingsAtRoot = false;
     renderSettings();
