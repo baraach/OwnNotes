@@ -99,7 +99,11 @@ const Editor = (() => {
       if (el.tagName === "IFRAME") {
         const src = el.getAttribute("src") || "";
         const video = VIDEO_FRAMES.some((pattern) => pattern.test(src));
-        const pdf = isAttachmentUrl(src) && /\.pdf$/i.test(decodeURIComponent(src));
+        // A malformed percent escape (e.g. "attachment://localhost/1/%")
+        // must not abort cleaning the whole note.
+        let decoded = src;
+        try { decoded = decodeURIComponent(src); } catch { /* not a PDF link */ }
+        const pdf = isAttachmentUrl(src) && /\.pdf$/i.test(decoded);
         if (!video && !pdf) el.remove();
       }
     }

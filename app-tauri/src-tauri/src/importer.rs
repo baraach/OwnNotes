@@ -38,7 +38,7 @@ pub fn parse_enex(text: &str) -> Vec<Imported> {
             }
             None => continue,
         };
-        let body = enml_body(&raw);
+        let body = enml_body(raw);
         let created = field(block, "created").and_then(|stamp| parse_stamp(&stamp));
 
         out.push(Imported {

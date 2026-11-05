@@ -20,6 +20,7 @@ chrono = "0.4"
 zip = "2"
 url = "2"
 percent-encoding = "2"
+base64 = "0.22"
 
 # Asks the desktop whether it can draw see-through windows at all.
 [target.'cfg(target_os = "linux")'.dependencies]

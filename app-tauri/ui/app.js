@@ -8,7 +8,7 @@ const CHANGES_NOTES = new Set([
   "rename_notebook", "colour_notebook", "remove_notebook", "restore_version", "save_attachment",
   "add_to_notebook", "remove_from_notebook", "move_note_space", "rename_tag", "empty_trash",
   "lock_note", "remove_note_lock", "set_container_lock", "import_enex", "import_markdown",
-  "import_simplenote", "import_apple_notes",
+  "import_simplenote", "import_apple_notes", "import_bear",
 ]);
 
 async function invoke(command, args, options) {
@@ -358,6 +358,9 @@ const state = {
   search: "",
   saveTimer: null,
   loading: false,
+  /** Text the backend doesn't have yet: note id → { title, body, failed, done }. */
+  unsaved: new Map(),
+  retryTimer: null,
 };
 
 // ------------------------------------------------------------ data
@@ -374,6 +377,12 @@ async function refresh() {
   for (const note of state.notes) {
     const plain = state.decrypted.get(note.id);
     if (plain !== undefined && note.locked) note.body = plain;
+    // What the backend hasn't got yet still counts as the note's text.
+    const kept = state.unsaved.get(note.id);
+    if (kept && !note.locked) {
+      note.title = kept.title;
+      note.body = kept.body;
+    }
   }
   state.notebooks = snap.notebooks;
   // Spaces come from the notes in them, so a space created a moment ago
@@ -491,8 +500,6 @@ function inView(note) {
       return !note.trashed && note.notebook_id === 0;
     case "unsynced":
       return !note.trashed && state.unsynced.includes(note.id);
-    case "uncategorized":
-      return !note.trashed && noteTags(note).length === 0;
     case "tag": {
       if (note.trashed) return false;
       const wanted = state.view.tag;
@@ -1506,32 +1513,47 @@ function renderEditor() {
   if (cover) cover.remove();
 
   state.loading = true;
-  if ($("title").value !== note.title) $("title").value = note.title;
-  // The body is HTML; notes from the Markdown era arrive as plain text.
-  // Anything that could run code is removed before it is shown (editor.js).
-  // The note already in the editor is left alone unless its text really
-  // changed (a sync brought a new version), so a background refresh never
-  // moves the cursor.
-  if (state.shownId !== note.id || state.shownBody !== note.body) {
-    const shown = typeof Editor === "undefined" ? note.body : Editor.load(note.body);
-    if ($("body").innerHTML !== shown) $("body").innerHTML = shown;
-    state.shownId = note.id;
-    state.shownBody = note.body;
-    // What the editor holds before any typing: compared on save, since
-    // cleaning can change the HTML (e.g. "&" → "&amp;") without an edit.
-    state.shownHTML = $("body").innerHTML;
+  try {
+    // A background refresh (e.g. after a sync) must not clobber text that
+    // hasn't been saved yet: the local edit wins and is saved over it.
+    // Dirty means it differs from what was last shown or saved, not from the
+    // note: a title changed on another device isn't an edit made here.
+    const titleDirty = state.shownId === note.id && $("title").value !== state.shownTitle;
+    if (!titleDirty) {
+      if ($("title").value !== note.title) $("title").value = note.title;
+      state.shownTitle = note.title;
+    }
+    // The body is HTML; notes from the Markdown era arrive as plain text.
+    // Anything that could run code is removed before it is shown (editor.js).
+    // The note already in the editor is left alone unless its text really
+    // changed (a sync brought a new version), so a background refresh never
+    // moves the cursor.
+    if (state.shownId !== note.id || state.shownBody !== note.body) {
+      const bodyDirty = state.shownId === note.id && $("body").innerHTML !== state.shownHTML;
+      if (!bodyDirty) {
+        const shown = typeof Editor === "undefined" ? note.body : Editor.load(note.body);
+        if ($("body").innerHTML !== shown) $("body").innerHTML = shown;
+        state.shownId = note.id;
+        state.shownBody = note.body;
+        // What the editor holds before any typing: compared on save, since
+        // cleaning can change the HTML (e.g. "&" → "&amp;") without an edit.
+        state.shownHTML = $("body").innerHTML;
+      }
+    }
+    const places = (note.notebooks || [note.notebook_id]).length;
+    const home = note.notebook_id === 0
+      ? t("Uncategorized")
+      : state.notebooks.find((b) => b.id === note.notebook_id)?.name || t("Notebook");
+    $("chip").textContent = places > 1 ? `${home} +${places - 1}` : home;
+    updateWords();
+    $("trash-note").title = note.trashed ? "Restore from Trash" : "Move to Trash";
+    $("trash-note").classList.toggle("on", note.trashed);
+    $("pin").classList.toggle("on", note.pinned);
+    $("star").classList.toggle("on", note.starred);
+  } finally {
+    // A note that fails to render must not leave autosave disabled.
+    state.loading = false;
   }
-  const places = (note.notebooks || [note.notebook_id]).length;
-  const home = note.notebook_id === 0
-    ? t("Uncategorized")
-    : state.notebooks.find((b) => b.id === note.notebook_id)?.name || t("Notebook");
-  $("chip").textContent = places > 1 ? `${home} +${places - 1}` : home;
-  updateWords();
-  $("trash-note").title = note.trashed ? "Restore from Trash" : "Move to Trash";
-  $("trash-note").classList.toggle("on", note.trashed);
-  $("pin").classList.toggle("on", note.pinned);
-  $("star").classList.toggle("on", note.starred);
-  state.loading = false;
 }
 
 function updateWords() {
@@ -1647,14 +1669,49 @@ async function saveNow() {
   const body = storedBody();
   // Nothing changed: don't touch the note (or its "edited" time).
   if (title === note.title && (body === note.body || $("body").innerHTML === state.shownHTML)) return;
+  // Commit before the await: while the save runs, the user can keep typing or
+  // open another note, and the editor no longer holds what is being saved.
   note.title = title;
   note.body = body;
+  state.shownTitle = title;
   state.shownBody = body;
   state.shownHTML = $("body").innerHTML;
   note.preview = bodyPreview(title);
   paintActiveCard(note);
-  await invoke("save_note", { id: note.id, title, body });
   updateWords();
+  // The text is kept in `unsaved` until the backend has it, wherever the
+  // editor has moved on to by then.
+  const entry = { title, body, failed: false };
+  state.unsaved.set(note.id, entry);
+  entry.done = writeUnsaved(note.id, entry);
+  await entry.done;
+}
+
+/** Write kept text. On failure it stays kept, and is retried until it lands. */
+async function writeUnsaved(id, entry) {
+  try {
+    await invoke("save_note", { id, title: entry.title, body: entry.body });
+    if (state.unsaved.get(id) === entry) state.unsaved.delete(id);
+  } catch (error) {
+    if (!entry.failed) toast(String(error));
+    entry.failed = true;
+    if (!state.retryTimer) state.retryTimer = setTimeout(retryUnsaved, 10000);
+  }
+}
+
+async function retryUnsaved() {
+  clearTimeout(state.retryTimer);
+  state.retryTimer = null;
+  for (const [id, entry] of [...state.unsaved]) {
+    if (!entry.failed) continue;
+    // Deleted since: there is nothing left to save it into.
+    if (!state.notes.some((note) => note.id === id)) {
+      state.unsaved.delete(id);
+      continue;
+    }
+    entry.done = writeUnsaved(id, entry);
+    await entry.done;
+  }
 }
 
 /** What the list shows for the open note, the way `Note::preview` builds it. */
@@ -1683,9 +1740,13 @@ function storedBody() {
   return typeof Editor === "undefined" ? html : Editor.store(html);
 }
 
-function flush() {
+/** Everything typed so far has been offered to the backend when this resolves. */
+async function flush() {
   clearTimeout(state.saveTimer);
-  return saveNow();
+  await saveNow();
+  // A save already running counts too, and so does one that failed earlier.
+  await Promise.all([...state.unsaved.values()].map((entry) => entry.done));
+  await retryUnsaved();
 }
 
 async function toggleFlag(flag) {
@@ -2990,8 +3051,14 @@ $("import-bear").addEventListener("click", async () => {
     syncStatus("Importing…");
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
+      // Import into the notebook and space that are open, not the defaults.
       const notebook = state.view.kind === "notebook" ? state.view.id : null;
-      const count = await invoke("import_bear", bytes);
+      const space = state.space || null;
+      let binary = "";
+      for (let i = 0; i < bytes.length; i += 0x8000) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+      }
+      const count = await invoke("import_bear", { notebook, space, archive: btoa(binary) });
       await refresh();
       toast(plural(count, "Imported {n} note from Bear", "Imported {n} notes from Bear"));
     } catch (error) {
@@ -3447,6 +3514,9 @@ async function runSync({ ask = false, popup = true } = {}) {
   setPill("busy");
   busy(true);
   try {
+    // Save the open note first: a sync must not replace text that hasn't
+    // reached the disk yet.
+    await flush();
     const report = await invoke("sync_now", { resolution: null, ask });
     if (report.needs_decision) {
       setPill("ready");
@@ -3636,6 +3706,7 @@ $("decision-continue").addEventListener("click", async () => {
   setPill("busy");
   busy(true);
   try {
+    await flush();
     const report = await invoke("sync_now", { resolution: decisionChoice, ask: false });
     await refresh();
     reportSynced(report);
@@ -4348,7 +4419,10 @@ window.addEventListener("keydown", (event) => {
   const key = event.key.toLowerCase();
   if (key === "s" && !event.shiftKey) {
     event.preventDefault();
-    flush().then(() => toast("Saved"));
+    flush().then(() => {
+      // A failed save has already said so.
+      if (![...state.unsaved.values()].some((entry) => entry.failed)) toast("Saved");
+    });
     return;
   }
   if (event.key === "Backspace") {
@@ -4963,8 +5037,15 @@ window.addEventListener("keydown", (event) => {
   }
 });
 
-window.addEventListener("beforeunload", () => {
+// Fire-and-forget save on exit hooks: they can't wait for the async IPC, so
+// the backend holds the window close and asks for a real flush first; this
+// is the fallback (and the only hook on phones, which background the app).
+function saveOnExit() {
   clearTimeout(state.saveTimer);
+  // Earlier saves that failed get one more try on the way out.
+  for (const [id, entry] of state.unsaved) {
+    if (entry.failed) invoke("save_note", { id, title: entry.title, body: entry.body }).catch(() => {});
+  }
   const note = currentNote();
   // The same checks as saveNow: only the note whose text is in the editor,
   // never a locked one, and only when something changed.
@@ -4972,7 +5053,25 @@ window.addEventListener("beforeunload", () => {
   const title = $("title").value;
   const body = storedBody();
   if (title === note.title && body === note.body) return;
-  invoke("save_note", { id: note.id, title, body });
+  invoke("save_note", { id: note.id, title, body }).catch(() => {});
+}
+
+window.addEventListener("beforeunload", saveOnExit);
+window.addEventListener("pagehide", saveOnExit);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") saveOnExit();
 });
+
+// The backend holds the window close and emits this; flush for real, then
+// let the close through.
+if (window.__TAURI__ && window.__TAURI__.event) {
+  window.__TAURI__.event.listen("ownnotes://flush-before-close", async () => {
+    try {
+      await flush();
+    } finally {
+      invoke("finish_close").catch(() => {});
+    }
+  });
+}
 
 boot();

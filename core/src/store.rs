@@ -84,6 +84,8 @@ impl Store {
         };
         let mut problems = Vec::new();
         sweep_temp_files(&store.notes_dir());
+        // Attachments use the same `.tmp.<pid>` convention in their own folder.
+        sweep_temp_files(&store.dir.join(crate::attachments::LOCAL_FOLDER));
 
         let settings = match fs::read_to_string(store.dir.join("settings.json")) {
             Ok(text) => serde_json::from_str(&text).unwrap_or_else(|e| {
@@ -223,14 +225,15 @@ impl Store {
     }
 
     /// Delete a note file by its path relative to the notes folder.
-    fn remove_note_file(&self, rel: &str) {
+    fn remove_note_file(&self, rel: &str) -> io::Result<()> {
         let path = self.notes_dir().join(rel);
         match fs::remove_file(&path) {
             Ok(()) => {}
             Err(e) if e.kind() == io::ErrorKind::NotFound => {}
-            Err(_) => {}
+            Err(e) => return Err(e),
         }
         self.remove_empty_folder(&path);
+        Ok(())
     }
 
     /// Drop the notebook folder once its last note is gone.
@@ -300,11 +303,15 @@ impl Store {
                     && !wanted.contains(old_rel.as_str())
                     && !self.same_file(old_rel, &rel)
                 {
-                    self.remove_note_file(old_rel);
+                    if let Err(e) = self.remove_note_file(old_rel) {
+                        eprintln!("Could not remove old note file {old_rel}: {e}");
+                    }
                 }
             }
             self.written.insert(note.id, (rel, text));
-            let _ = self.snapshot(doc.notebook_name(note.notebook_id), note, false);
+            if let Err(e) = self.snapshot(doc.notebook_name(note.notebook_id), note, false) {
+                eprintln!("Could not save a version of note {}: {e}", note.id);
+            }
         }
 
         // Copies whose notebook was removed, or whose note is gone.
@@ -337,13 +344,9 @@ impl Store {
             .collect();
         for id in gone {
             if let Some((rel, _)) = self.written.remove(&id) {
-                let path = self.notes_dir().join(&rel);
-                match fs::remove_file(&path) {
-                    Ok(()) => {}
-                    Err(e) if e.kind() == io::ErrorKind::NotFound => {}
-                    Err(e) => return Err(e),
+                if let Err(e) = self.remove_note_file(&rel) {
+                    eprintln!("Could not remove deleted note file {rel}: {e}");
                 }
-                self.remove_empty_folder(&path);
             }
         }
         let library = render_library(doc);
@@ -403,6 +406,10 @@ pub fn note_rel_path(notebook_name: &str, id: u64, trashed: bool) -> String {
 }
 
 pub const LIBRARY_FILE: &str = "library.json";
+/// Which notebooks and spaces are locked. This file syncs (unlike `app.json`,
+/// which holds the passcode verifier and must never leave the device), so
+/// every device knows which containers are locked.
+pub const LOCKS_FILE: &str = "locks.json";
 
 /// The folder where trashed notes are stored.
 /// The folder trashed notes move into. A notebook can never be named this:
@@ -451,6 +458,9 @@ pub struct Version {
     pub at: DateTime<Local>,
     pub body: String,
     pub title: String,
+    /// Where the version file lives, so it can be removed whatever its
+    /// extension or folder is.
+    pub path: PathBuf,
 }
 
 /// How many versions of one note to keep, and how far apart they are taken.
@@ -476,46 +486,57 @@ impl Store {
         format!("note-{id}-{millis}.html")
     }
 
-    /// Every saved version of a note, newest first.
-    pub fn versions(&self, notebook_name: &str, id: u64) -> Vec<Version> {
-        let dir = self.note_versions_dir(notebook_name);
+    /// Every saved version of a note, newest first. Versions are looked for
+    /// in every workspace folder, not just the note's current notebook: a
+    /// renamed notebook or a moved note must not hide its history.
+    pub fn versions(&self, _notebook_name: &str, id: u64) -> Vec<Version> {
         let prefix = format!("note-{id}-");
-        let Ok(entries) = fs::read_dir(&dir) else {
+        let Ok(folders) = fs::read_dir(self.versions_dir()) else {
             return Vec::new();
         };
         let mut out = Vec::new();
-        for entry in entries.flatten() {
-            let path = entry.path();
-            let Some(file) = path.file_name().and_then(|s| s.to_str()) else {
-                continue;
-            };
-            if !file.starts_with(&prefix)
-                || path
-                    .extension()
-                    .is_none_or(|e| e != "md" && e != "html")
-            {
+        for folder in folders.flatten() {
+            let dir = folder.path();
+            if !dir.is_dir() {
                 continue;
             }
-            let Some(millis) = file
-                .trim_start_matches(&prefix)
-                .trim_end_matches(".html")
-                .trim_end_matches(".md")
-                .parse::<i64>()
-                .ok()
-            else {
+            let Ok(entries) = fs::read_dir(&dir) else {
                 continue;
             };
-            let Some(at) = DateTime::from_timestamp_millis(millis).map(|t| t.with_timezone(&Local)) else {
-                continue;
-            };
-            let Some(note) = fs::read_to_string(&path).ok().and_then(|t| parse_note(&t)) else {
-                continue;
-            };
-            out.push(Version {
-                at,
-                body: note.body,
-                title: note.title,
-            });
+            for entry in entries.flatten() {
+                let path = entry.path();
+                let Some(file) = path.file_name().and_then(|s| s.to_str()) else {
+                    continue;
+                };
+                if !file.starts_with(&prefix)
+                    || path
+                        .extension()
+                        .is_none_or(|e| e != "md" && e != "html")
+                {
+                    continue;
+                }
+                let Some(millis) = file
+                    .trim_start_matches(&prefix)
+                    .trim_end_matches(".html")
+                    .trim_end_matches(".md")
+                    .parse::<i64>()
+                    .ok()
+                else {
+                    continue;
+                };
+                let Some(at) = DateTime::from_timestamp_millis(millis).map(|t| t.with_timezone(&Local)) else {
+                    continue;
+                };
+                let Some(note) = fs::read_to_string(&path).ok().and_then(|t| parse_note(&t)) else {
+                    continue;
+                };
+                out.push(Version {
+                    at,
+                    body: note.body,
+                    title: note.title,
+                    path,
+                });
+            }
         }
         out.sort_by_key(|a| std::cmp::Reverse(a.at));
         out
@@ -639,6 +660,48 @@ impl Store {
         let _ = fs::remove_file(self.versions_dir().join(rest));
     }
 
+    /// Remove a version file at its actual path (whatever folder and
+    /// extension it has).
+    pub fn remove_version_path(&self, path: &Path) {
+        if let Err(error) = fs::remove_file(path) {
+            if error.kind() != io::ErrorKind::NotFound {
+                eprintln!("Could not remove version file {}: {error}", path.display());
+            }
+        }
+    }
+
+    /// Re-seal every stored version that opens with `from` using `to`
+    /// (a passcode change), so history doesn't stay locked with the old one.
+    /// Returns how many version files were re-sealed.
+    pub fn reseal_versions(&self, from: &str, to: &str) -> usize {
+        let mut done = 0;
+        let Ok(folders) = fs::read_dir(self.versions_dir()) else {
+            return 0;
+        };
+        for folder in folders.flatten() {
+            let Ok(files) = fs::read_dir(folder.path()) else { continue };
+            for file in files.flatten() {
+                let path = file.path();
+                if path.extension().is_none_or(|e| e != "md" && e != "html") {
+                    continue;
+                }
+                let Ok(text) = fs::read_to_string(&path) else { continue };
+                let Some(mut note) = parse_note(&text) else { continue };
+                if !crate::crypto::is_encrypted(&note.body) {
+                    continue;
+                }
+                let Some(plain) = crate::crypto::decrypt(from, &note.body) else {
+                    continue;
+                };
+                note.body = crate::crypto::encrypt(to, &plain);
+                if write_atomic(&path, &render_note(&note)).is_ok() {
+                    done += 1;
+                }
+            }
+        }
+        done
+    }
+
     /// Delete every stored version of a note (when it is locked, its older
     /// versions are readable and must not stay behind).
     pub fn forget_versions(&self, id: u64) {
@@ -655,8 +718,8 @@ impl Store {
     }
 
     /// Save a version of a note right now (used before restoring one).
-    pub fn snapshot_now(&self, notebook_name: &str, note: &Note) {
-        let _ = self.snapshot(notebook_name, note, true);
+    pub fn snapshot_now(&self, notebook_name: &str, note: &Note) -> io::Result<()> {
+        self.snapshot(notebook_name, note, true)
     }
 
     fn sync_state_path(&self) -> PathBuf {
@@ -1228,5 +1291,99 @@ mod tests {
         Store::open_at(dir);
         assert!(!stale.exists(), "an abandoned temporary file is cleared on open");
         assert!(decoy.exists(), "a file named like a note is left alone");
+    }
+
+    #[test]
+    fn versions_survive_a_notebook_rename_or_move() {
+        let dir = temp_dir("versions-move");
+        let (mut store, _, _, _) = Store::open_at(dir.clone());
+        let mut doc = Document::from_parts(
+            vec![
+                Notebook { parent: None, id: 1, name: "Work".into(), color: 0 },
+                Notebook { parent: None, id: 2, name: "Home".into(), color: 1 },
+            ],
+            Vec::new(),
+        );
+        let id = doc.add_note(1, "Plan", "one");
+        store.save(&doc).unwrap();
+        doc.note_mut(id).unwrap().body = "two".into();
+        store.save(&doc).unwrap();
+        // The 2-minute gap means the second save made no version: force one.
+        let note = doc.note(id).unwrap().clone();
+        store.snapshot_now("Work", &note).unwrap();
+        assert!(!store.versions("Work", id).is_empty());
+
+        // An old-build `.md` version file in the same folder counts too.
+        let old_md = dir
+            .join("versions")
+            .join(workspace_folder("Work"))
+            .join(format!("note-{id}-1000.md"));
+        fs::create_dir_all(old_md.parent().unwrap()).unwrap();
+        fs::write(&old_md, render_note(&note)).unwrap();
+
+        // Move the note: its history must still be found.
+        doc.note_mut(id).unwrap().notebook_id = 2;
+        store.save(&doc).unwrap();
+        let found = store.versions("Home", id);
+        assert!(!found.is_empty(), "versions are found in every workspace folder");
+        assert!(found.iter().any(|v| v.path == old_md), "old .md versions are listed");
+
+        // Removing by real path gets the .md file too.
+        for version in &found {
+            store.remove_version_path(&version.path);
+        }
+        assert!(!old_md.exists());
+        assert!(store.versions("Home", id).is_empty());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn reseal_versions_rekeys_history_with_a_new_passcode() {
+        let dir = temp_dir("reseal-versions");
+        let (mut store, _, _, _) = Store::open_at(dir.clone());
+        let mut doc = Document::from_parts(
+            vec![Notebook { parent: None, id: 1, name: "Work".into(), color: 0 }],
+            Vec::new(),
+        );
+        let id = doc.add_note(1, "Secret", "plain");
+        {
+            let note = doc.note_mut(id).unwrap();
+            note.body = crate::crypto::encrypt("old-pw", "plain");
+            note.locked = true;
+        }
+        store.save(&doc).unwrap();
+        let note = doc.note(id).unwrap().clone();
+        store.snapshot_now("Work", &note).unwrap();
+
+        let done = store.reseal_versions("old-pw", "new-pw");
+        assert!(done >= 1, "at least the forced version was re-sealed");
+        for version in store.versions("Work", id) {
+            assert!(
+                crate::crypto::decrypt("new-pw", &version.body).is_some(),
+                "the new passcode opens the history"
+            );
+            assert!(
+                crate::crypto::decrypt("old-pw", &version.body).is_none(),
+                "the old passcode no longer does"
+            );
+        }
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn attachment_temp_files_are_swept_too() {
+        let dir = temp_dir("temp-sweep-attachments");
+        let _ = Store::open_at(dir.clone());
+        let folder = dir.join(crate::attachments::LOCAL_FOLDER).join("42");
+        fs::create_dir_all(&folder).unwrap();
+        let stale = folder.join(".file.pdf.tmp.4242");
+        fs::write(&stale, "half").unwrap();
+        let long_ago = std::time::SystemTime::now() - std::time::Duration::from_secs(600);
+        let handle = fs::File::options().write(true).open(&stale).unwrap();
+        handle.set_modified(long_ago).unwrap();
+
+        Store::open_at(dir.clone());
+        assert!(!stale.exists(), "abandoned attachment temp files are cleared on open");
+        let _ = fs::remove_dir_all(dir);
     }
 }

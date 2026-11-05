@@ -74,9 +74,13 @@ pub fn hash(text: &str) -> String {
 
 /// Only our own files take part; anything else in the folder is left alone.
 /// A note is `note-<id>.md`, either in the folder's root (older versions) or
-/// inside a notebook's folder.
+/// inside a notebook's folder. `locks.json` (which containers are locked)
+/// syncs too; `app.json` (the passcode verifier) deliberately does not.
 pub fn syncable(name: &str) -> bool {
-    name == LIBRARY_FILE || note_id(name).is_some() || is_version(name)
+    name == LIBRARY_FILE
+        || name == crate::store::LOCKS_FILE
+        || note_id(name).is_some()
+        || is_version(name)
 }
 
 /// An old version: `Versions/<workspace>/note-<id>-<millis>.md`.

@@ -4,10 +4,11 @@
 use ownnotes_core::cloud::engine::{self, LocalFile, Resolution};
 use ownnotes_core::cloud::{secrets, Remote, WebDav};
 use ownnotes_core::model::Notebook;
-use ownnotes_core::store::{self, SyncState, LIBRARY_FILE};
+use ownnotes_core::store::{self, SyncState, LIBRARY_FILE, LOCKS_FILE};
 use std::collections::HashMap;
 use serde::Serialize;
 
+use crate::extras;
 use crate::App;
 
 #[derive(Serialize, Default)]
@@ -19,6 +20,9 @@ pub struct Report {
     pub busy: bool,
     /// Something changed here while the sync ran: sync again soon.
     pub again: bool,
+    /// Downloads held back because they landed in a locked container and no
+    /// passcode was entered this session; sealed at the next unlock.
+    pub held: Vec<String>,
 }
 
 #[derive(Serialize, Clone)]
@@ -93,6 +97,13 @@ impl App {
             name: LIBRARY_FILE.to_string(),
             content: store::render_library(&self.doc),
         });
+        // Which notebooks and spaces are locked syncs too (never app.json,
+        // which holds the passcode verifier).
+        let lists = extras::lock_lists(self.store.dir());
+        files.push(LocalFile {
+            name: LOCKS_FILE.to_string(),
+            content: serde_json::to_string_pretty(&lists).unwrap_or_default(),
+        });
         files.extend(
             self.store
                 .version_files()
@@ -103,7 +114,7 @@ impl App {
     }
 
     /// Write whatever the sync brought back into the library.
-    pub fn apply_sync(&mut self, outcome: engine::Outcome, _source: &str) -> Report {
+    pub fn apply_sync(&mut self, mut outcome: engine::Outcome, _source: &str, before: &SyncState) -> Report {
         let mut report = Report::default();
         let resolution = outcome.resolution;
 
@@ -111,6 +122,31 @@ impl App {
             if engine::is_version(&file.name) {
                 self.store.write_version_file(&file.name, &file.content);
                 report.changed += 1;
+            } else if file.name == LOCKS_FILE {
+                // Merge the lock lists, so a lock set on another device
+                // applies here too.
+                if let Ok(synced) = serde_json::from_str::<extras::LockLists>(&file.content) {
+                    let dir = self.store.dir().to_path_buf();
+                    let mut all = extras::load(&dir);
+                    for id in synced.locked_notebooks {
+                        if !all.locked_notebooks.contains(&id) {
+                            all.locked_notebooks.push(id);
+                        }
+                    }
+                    for space in synced.locked_spaces {
+                        if !all.locked_spaces.contains(&space) {
+                            all.locked_spaces.push(space);
+                        }
+                    }
+                    if extras::save(&dir, &all).is_ok() {
+                        let lists = extras::LockLists {
+                            locked_notebooks: all.locked_notebooks.clone(),
+                            locked_spaces: all.locked_spaces.clone(),
+                        };
+                        let _ = extras::save_lock_lists(&dir, &lists);
+                        report.changed += 1;
+                    }
+                }
             } else if file.name == LIBRARY_FILE {
                 if let Some(notebooks) = store::parse_library(&file.content) {
                     if resolution == Resolution::Remote {
@@ -127,7 +163,34 @@ impl App {
                     }
                     report.changed += 1;
                 }
-            } else if let Some(note) = store::parse_note(&file.content) {
+            } else if let Some(mut note) = store::parse_note(&file.content) {
+                // A note arriving in a locked notebook or space must be
+                // sealed, never stored as plain text. Without the session
+                // passcode it can't be: hold the download back (the next
+                // sync brings it again, and the next unlock seals it).
+                if !note.locked
+                    && !ownnotes_core::crypto::is_encrypted(&note.body)
+                    && crate::in_locked_container(self, &note, None)
+                {
+                    match self.session_passcode.clone() {
+                        Some(code) => {
+                            let sealed = ownnotes_core::crypto::encrypt(&code, &note.body);
+                            if sealed.is_empty() {
+                                report.held.push(file.name.clone());
+                                hold_back(&mut outcome.state, before, &file.name);
+                                continue;
+                            }
+                            note.body = sealed;
+                            note.locked = true;
+                            self.unlocked.insert(note.id, code);
+                        }
+                        None => {
+                            report.held.push(file.name.clone());
+                            hold_back(&mut outcome.state, before, &file.name);
+                            continue;
+                        }
+                    }
+                }
                 if !self.doc.has_notebook(note.notebook_id) {
                     self.doc.notebooks.push(Notebook {
                         parent: None,
@@ -224,6 +287,19 @@ impl App {
 /// while it ran.
 pub fn snapshot(files: &[LocalFile]) -> HashMap<String, String> {
     files.iter().map(|f| (f.name.clone(), engine::hash(&f.content))).collect()
+}
+
+/// Pretend a download never happened: restore the pre-sync state entry, so
+/// the next sync brings the file again.
+fn hold_back(state: &mut SyncState, before: &SyncState, name: &str) {
+    match before.files.get(name) {
+        Some(old) => {
+            state.files.insert(name.to_string(), old.clone());
+        }
+        None => {
+            state.files.remove(name);
+        }
+    }
 }
 
 /// Leave out whatever this sync brought for a file that was edited while it

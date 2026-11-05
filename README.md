@@ -101,9 +101,11 @@ one-pane layout with platform-specific navigation and chrome.
 
 ### 🔒 Privacy
 - 🔐 **App lock** and note, notebook and space locks
-- 🛡 Locked notes are **encrypted**, not just hidden — AES-256-GCM with a key
-  derived from your passcode (PBKDF2-SHA256, 120 000 rounds). What reaches your
-  server for a locked note is ciphertext.
+- 🛡 Locked notes are **encrypted**, not just hidden — the note body is sealed
+  with AES-256-GCM, key derived from your passcode (PBKDF2-SHA256, 600 000
+  rounds for new seals; older `enc1:` notes still open). What reaches your
+  server for a locked note's **body** is ciphertext — titles, dates and
+  attachments are not encrypted.
 
 ### ☁️ Sync
 - 🌐 **WebDAV only** — your folder, your credentials

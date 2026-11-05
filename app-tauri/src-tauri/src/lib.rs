@@ -5,7 +5,11 @@ mod importer;
 mod platform;
 mod sync;
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
+
+/// Set while a close is held back for the interface to flush the open note.
+static CLOSE_IN_PROGRESS: AtomicBool = AtomicBool::new(false);
 
 use ownnotes_core::attachments;
 use ownnotes_core::model::Document;
@@ -28,6 +32,8 @@ struct App {
     /// The passcode, once it has been entered this session: notes added to a
     /// locked notebook or space are sealed with it.
     session_passcode: Option<String>,
+    /// Files that couldn't be read at startup, shown once in the interface.
+    problems: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -125,8 +131,8 @@ fn notes_in_container(app: &App, kind: &str, key: &str) -> Vec<u64> {
 
 /// Whether a note sits in a locked notebook (or inside one) or a locked space.
 fn in_locked_container(app: &App, note: &ownnotes_core::model::Note, skip: Option<(&str, &str)>) -> bool {
-    let all = extras::load(app.store.dir());
-    if all.locked_spaces.iter().any(|space| *space == note.space && skip != Some(("space", space.as_str()))) {
+    let lists = extras::lock_lists(app.store.dir());
+    if lists.locked_spaces.iter().any(|space| *space == note.space && skip != Some(("space", space.as_str()))) {
         return true;
     }
     for book in app.doc.notebooks_of(note) {
@@ -135,7 +141,7 @@ fn in_locked_container(app: &App, note: &ownnotes_core::model::Note, skip: Optio
         let mut seen = 0;
         while let Some(id) = current {
             let key = id.to_string();
-            if all.locked_notebooks.contains(&id) && skip != Some(("notebook", key.as_str())) {
+            if lists.locked_notebooks.contains(&id) && skip != Some(("notebook", key.as_str())) {
                 return true;
             }
             current = app.doc.notebooks.iter().find(|n| n.id == id).and_then(|n| n.parent);
@@ -146,6 +152,24 @@ fn in_locked_container(app: &App, note: &ownnotes_core::model::Note, skip: Optio
         }
     }
     false
+}
+
+/// Check a passcode against the stored app-lock verifier. A legacy unsalted
+/// SHA-256 verifier that matches is upgraded in place to the salted format.
+fn check_app_passcode(dir: &std::path::Path, passcode: &str) -> Result<(), String> {
+    let all = extras::load(dir);
+    let Some(stored) = all.lock.clone() else {
+        return Err("There is no app passcode".into());
+    };
+    if !ownnotes_core::crypto::check_passcode(&stored, passcode) {
+        return Err("That passcode doesn't match".into());
+    }
+    if ownnotes_core::crypto::is_legacy_passcode(&stored) {
+        let mut all = all;
+        all.lock = Some(ownnotes_core::crypto::seal_passcode(passcode));
+        let _ = extras::save(dir, &all);
+    }
+    Ok(())
 }
 
 /// A note that ended up in a locked notebook or space (made there, moved,
@@ -172,6 +196,19 @@ fn seal_if_in_locked_container(app: &mut App, id: u64) -> Result<(), String> {
     Ok(())
 }
 
+/// Seal every note an import just added, rolling back ALL of them when one
+/// can't be sealed: leaving the rest unsealed in a locked container would
+/// write them to disk — and the server — as plain text on the next save.
+fn seal_fresh_notes(app: &mut App, fresh: &[u64]) -> Result<(), String> {
+    for id in fresh {
+        if let Err(error) = seal_if_in_locked_container(app, *id) {
+            app.doc.notes.retain(|note| !fresh.contains(&note.id));
+            return Err(error);
+        }
+    }
+    Ok(())
+}
+
 /// A file name in a folder that isn't taken yet: "name.pdf", "name (2).pdf"…
 fn unique_path(dir: &std::path::Path, stem: &str, extension: &str) -> std::path::PathBuf {
     let mut path = dir.join(format!("{stem}.{extension}"));
@@ -191,7 +228,7 @@ fn doc_notes(app: &App) -> Vec<String> {
 }
 
 fn snapshot(app: &App, problems: Vec<String>) -> Snapshot {
-    let locked_books = extras::load(app.store.dir()).locked_notebooks;
+    let locked_books = extras::lock_lists(app.store.dir()).locked_notebooks;
     let locked_books = &locked_books;
     let notes = app
         .doc
@@ -262,7 +299,17 @@ fn snapshot(app: &App, problems: Vec<String>) -> Snapshot {
 #[tauri::command]
 fn load(state: State<'_, Mutex<App>>) -> Result<Snapshot, String> {
     let app = state.lock().map_err(|e| e.to_string())?;
-    Ok(snapshot(&app, Vec::new()))
+    let problems = app.problems.clone();
+    Ok(snapshot(&app, problems))
+}
+
+/// The interface finished flushing after a held close: close for real.
+#[tauri::command]
+fn finish_close(app_handle: tauri::AppHandle) {
+    use tauri::Manager;
+    if let Some(window) = app_handle.get_webview_window("main") {
+        let _ = window.destroy();
+    }
 }
 
 #[tauri::command]
@@ -275,36 +322,48 @@ fn save_note(
     let mut guard = state.lock().map_err(|e| e.to_string())?;
     let app = &mut *guard;
     let passcode = app.unlocked.get(&id).cloned();
+    let Some(note) = app.doc.note(id) else {
+        return Err("This note no longer exists".into());
+    };
+    let previous = note.clone();
+    let body = match (&passcode, note.locked) {
+        // Never write plain text into a locked note.
+        (Some(code), true) if !ownnotes_core::crypto::is_encrypted(&body) => {
+            // Sealed elsewhere with another passcode (another device):
+            // what the editor shows isn't this text, so don't replace it.
+            if ownnotes_core::crypto::is_encrypted(&note.body)
+                && ownnotes_core::crypto::decrypt(code, &note.body).is_none()
+            {
+                return Err("This note was locked with another passcode; it can't be edited here".into());
+            }
+            let sealed = ownnotes_core::crypto::encrypt(code, &body);
+            if sealed.is_empty() {
+                return Err("The note couldn't be encrypted; nothing was saved".into());
+            }
+            sealed
+        }
+        // Locked and not opened: whatever the interface sent is not the
+        // note's text (it never saw it), so the sealed text is kept.
+        (None, true) if !ownnotes_core::crypto::is_encrypted(&body) => {
+            return Err("This note is locked — unlock it before editing".into());
+        }
+        _ => body,
+    };
     if let Some(note) = app.doc.note_mut(id) {
-        let body = match (&passcode, note.locked) {
-            // Never write plain text into a locked note.
-            (Some(code), true) if !ownnotes_core::crypto::is_encrypted(&body) => {
-                // Sealed elsewhere with another passcode (another device):
-                // what the editor shows isn't this text, so don't replace it.
-                if ownnotes_core::crypto::is_encrypted(&note.body)
-                    && ownnotes_core::crypto::decrypt(code, &note.body).is_none()
-                {
-                    return Err("This note was locked with another passcode; it can't be edited here".into());
-                }
-                let sealed = ownnotes_core::crypto::encrypt(code, &body);
-                if sealed.is_empty() {
-                    return Err("The note couldn't be encrypted; nothing was saved".into());
-                }
-                sealed
-            }
-            // Locked and not opened: whatever the interface sent is not the
-            // note's text (it never saw it), so the sealed text is kept.
-            (None, true) if !ownnotes_core::crypto::is_encrypted(&body) => {
-                return Err("This note is locked — unlock it before editing".into());
-            }
-            _ => body,
-        };
         note.title = title;
         note.body = body;
         note.updated = chrono::Local::now();
     }
     let App { store, doc, .. } = app;
-    store.save(doc).map_err(|e| e.to_string())
+    if let Err(error) = store.save(doc) {
+        // The write failed: put the in-memory note back, so the next save
+        // retries this text instead of treating it as saved.
+        if let Some(note) = doc.note_mut(id) {
+            *note = previous;
+        }
+        return Err(error.to_string());
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -386,7 +445,10 @@ fn delete_note(state: State<'_, Mutex<App>>, id: u64) -> Result<(), String> {
     app.doc.notes.retain(|note| note.id != id);
     let App { store, doc, .. } = app;
     store.save(doc).map_err(|e| e.to_string())?;
-    // Its files go too; the server copy is removed on the next sync.
+    // Only once that worked: its files go too, and its versions, which are
+    // syncable and would otherwise stay behind. Server copies go on the next
+    // sync.
+    store.forget_versions(id);
     attachments::remove_local(store.dir(), id);
     Ok(())
 }
@@ -408,12 +470,15 @@ fn empty_trash(state: State<'_, Mutex<App>>, ids: Vec<u64>) -> Result<usize, Str
     if doomed.is_empty() {
         return Ok(0);
     }
-    for id in &doomed {
-        attachments::remove_local(app.store.dir(), *id);
-    }
     app.doc.notes.retain(|note| !doomed.contains(&note.id));
     let App { store, doc, .. } = app;
+    // Save first: if the write fails, the notes are still there and their
+    // versions and attachments must not be gone already.
     store.save(doc).map_err(|e| e.to_string())?;
+    for id in &doomed {
+        store.forget_versions(*id);
+        attachments::remove_local(store.dir(), *id);
+    }
     Ok(doomed.len())
 }
 
@@ -471,6 +536,7 @@ async fn sync_now(
             needs_decision: None,
             busy: true,
             again: false,
+            held: Vec::new(),
         });
     }
     struct Done;
@@ -494,6 +560,7 @@ async fn sync_now(
             needs_decision: Some(decision),
             busy: false,
             again: false,
+            held: Vec::new(),
         });
     }
     let mut outcome = match (run.outcome, run.error.clone()) {
@@ -505,6 +572,7 @@ async fn sync_now(
                 needs_decision: None,
                 busy: false,
                 again: false,
+                held: Vec::new(),
             })
         }
         (None, None) => return Err("Nothing to apply".into()),
@@ -521,7 +589,7 @@ async fn sync_now(
         app.sync.first_sync_for = source.clone();
     }
     let clean = outcome.error.is_none();
-    let mut report = app.apply_sync(outcome, &source);
+    let mut report = app.apply_sync(outcome, &source, &before);
     // A problem after the notes synced (attachments) is reported, but the
     // notes themselves were applied above.
     if report.error.is_none() {
@@ -681,11 +749,10 @@ fn restore_version(
     at: String,
 ) -> Result<(), String> {
     let mut app = state.lock().map_err(|e| e.to_string())?;
-    let notebook = app
-        .doc
-        .note(id)
-        .map(|note| app.doc.notebook_name(note.notebook_id).to_string())
-        .unwrap_or_default();
+    let Some(current) = app.doc.note(id) else {
+        return Err("No such note".into());
+    };
+    let notebook = app.doc.notebook_name(current.notebook_id).to_string();
     let Some(version) = app
         .store
         .versions(&notebook, id)
@@ -694,7 +761,13 @@ fn restore_version(
     else {
         return Err("That version is gone".into());
     };
+    // Keep the text as it is right now: restoring an older version must not
+    // be able to destroy it. If it can't be kept, nothing is restored.
+    app.store
+        .snapshot_now(&notebook, current)
+        .map_err(|e| format!("The current text couldn't be kept, so nothing was restored ({e})"))?;
     let passcode = app.unlocked.get(&id).cloned();
+    let session = app.session_passcode.clone();
     if let Some(note) = app.doc.note_mut(id) {
         note.body = if note.locked {
             // The old version may be readable (from before the lock) or
@@ -707,6 +780,15 @@ fn restore_version(
                 version.body
             };
             ownnotes_core::crypto::encrypt(&code, &plain)
+        } else if ownnotes_core::crypto::is_encrypted(&version.body) {
+            // A sealed version restored into an unlocked note would show up
+            // as ciphertext: open it with the passcode instead.
+            let code = passcode
+                .clone()
+                .or_else(|| session.clone())
+                .ok_or("That version was sealed with a passcode — unlock the note to restore it")?;
+            ownnotes_core::crypto::decrypt(&code, &version.body)
+                .ok_or("That version was sealed with another passcode")?
         } else {
             version.body
         };
@@ -770,22 +852,16 @@ fn set_container_lock(
         return Err("Unknown kind of lock".into());
     }
 
-    let stored = extras::load(&dir).lock;
     let code = passcode.unwrap_or_default();
 
     // Every note inside is sealed with the passcode, so a passcode must exist
     // and the one given must be it.
-    if locked {
-        let Some(hash) = stored else {
-            return Err("Set an app passcode in Settings first — notes are sealed with it".into());
-        };
-        if extras::hash_passcode(&code) != hash {
-            return Err("That passcode doesn't match".into());
-        }
-    } else if let Some(hash) = stored {
-        if !code.is_empty() && extras::hash_passcode(&code) != hash {
-            return Err("That passcode doesn't match".into());
-        }
+    let has_lock = extras::load(&dir).lock.is_some();
+    if locked && !has_lock {
+        return Err("Set an app passcode in Settings first — notes are sealed with it".into());
+    }
+    if has_lock && (locked || !code.is_empty()) {
+        check_app_passcode(&dir, &code)?;
     }
 
     let ids = notes_in_container(app, &kind, &key);
@@ -821,12 +897,10 @@ fn set_container_lock(
     } else {
         // Removing the lock: every note in it is opened for good. All of
         // them are opened first, so a wrong passcode changes nothing.
-        let Some(hash) = extras::load(&dir).lock else {
+        if extras::load(&dir).lock.is_none() {
             return Err("There is no app passcode to open these notes with".into());
-        };
-        if extras::hash_passcode(&code) != hash {
-            return Err("That passcode doesn't match".into());
         }
+        check_app_passcode(&dir, &code)?;
         let mut opened = Vec::new();
         for id in &ids {
             let Some(note) = app.doc.note(*id) else { continue };
@@ -877,6 +951,14 @@ fn set_container_lock(
             }
         }
     }
+    // The lock lists sync, so other devices know these containers are locked.
+    extras::save_lock_lists(
+        &dir,
+        &extras::LockLists {
+            locked_notebooks: all.locked_notebooks.clone(),
+            locked_spaces: all.locked_spaces.clone(),
+        },
+    )?;
     extras::save(&dir, &all)
 }
 
@@ -888,9 +970,7 @@ fn lock_note(state: State<'_, Mutex<App>>, id: u64, passcode: String) -> Result<
     if extras::load(&dir).lock.is_none() {
         return Err("Set an app passcode in Settings first — the note is sealed with it.".into());
     }
-    if extras::hash_passcode(&passcode) != extras::load(&dir).lock.unwrap_or_default() {
-        return Err("That passcode doesn't match".into());
-    }
+    check_app_passcode(&dir, &passcode)?;
 
     if let Some(note) = app.doc.note_mut(id) {
         if !ownnotes_core::crypto::is_encrypted(&note.body) {
@@ -937,7 +1017,14 @@ fn unlock_note(
             None => Err("That passcode doesn't open this note".into()),
         }
     } else {
-        // Written before notes were sealed: nothing to open.
+        // Written before notes were sealed: nothing to open, but still check
+        // the passcode against the app lock — otherwise any typo would be
+        // remembered and seal the note with it on the next save.
+        if let Some(hash) = extras::load(app.store.dir()).lock {
+            if !ownnotes_core::crypto::check_passcode(&hash, &passcode) {
+                return Err("That passcode doesn't match".into());
+            }
+        }
         app.unlocked.insert(id, passcode);
         Ok(body)
     }
@@ -954,12 +1041,8 @@ fn open_container(
 ) -> Result<(), String> {
     let mut guard = state.lock().map_err(|e| e.to_string())?;
     let app = &mut *guard;
-    let Some(hash) = extras::load(app.store.dir()).lock else {
-        return Err("There is no app passcode".into());
-    };
-    if extras::hash_passcode(&passcode) != hash {
-        return Err("That passcode doesn't match".into());
-    }
+    let dir = app.store.dir().to_path_buf();
+    check_app_passcode(&dir, &passcode)?;
     let ids = notes_in_container(app, &kind, &key);
     for id in &ids {
         if let Some(note) = app.doc.note(*id) {
@@ -973,7 +1056,36 @@ fn open_container(
     for id in ids {
         app.unlocked.insert(id, passcode.clone());
     }
-    app.session_passcode = Some(passcode);
+    app.session_passcode = Some(passcode.clone());
+    // Notes that arrived by sync into a locked container while no passcode
+    // was entered are held back as plain text: seal them now.
+    let mut sealed_now = Vec::new();
+    for id in app.doc.notes.iter().map(|n| n.id).collect::<Vec<_>>() {
+        let plain = match app.doc.note(id) {
+            Some(note)
+                if note.locked
+                    && !ownnotes_core::crypto::is_encrypted(&note.body)
+                    && in_locked_container(app, note, None) =>
+            {
+                note.body.clone()
+            }
+            _ => continue,
+        };
+        let sealed = ownnotes_core::crypto::encrypt(&passcode, &plain);
+        if !sealed.is_empty() {
+            sealed_now.push((id, sealed));
+        }
+    }
+    for (id, sealed) in sealed_now {
+        if let Some(note) = app.doc.note_mut(id) {
+            note.body = sealed;
+        }
+        app.unlocked.insert(id, passcode.clone());
+    }
+    if !app.doc.notes.is_empty() {
+        let App { store, doc, .. } = &mut *app;
+        let _ = store.save(doc);
+    }
     Ok(())
 }
 
@@ -982,11 +1094,12 @@ fn open_container(
 fn remove_note_lock(state: State<'_, Mutex<App>>, id: u64, passcode: String) -> Result<(), String> {
     let mut guard = state.lock().map_err(|e| e.to_string())?;
     let app = &mut *guard;
-    let Some(hash) = extras::load(app.store.dir()).lock else {
-        return Err("There is no app passcode".into());
-    };
-    if extras::hash_passcode(&passcode) != hash {
-        return Err("That passcode doesn't match".into());
+    let dir = app.store.dir().to_path_buf();
+    check_app_passcode(&dir, &passcode)?;
+    let Some(note) = app.doc.note(id) else { return Err("No such note".into()) };
+    // Still inside a locked notebook or space: the note must stay sealed.
+    if in_locked_container(app, note, None) {
+        return Err("This note is still in a locked notebook or space — move it out before removing its lock".into());
     }
     let Some(note) = app.doc.note_mut(id) else { return Err("No such note".into()) };
     if ownnotes_core::crypto::is_encrypted(&note.body) {
@@ -1089,7 +1202,7 @@ fn move_note(state: State<'_, Mutex<App>>, id: u64, notebook: u64) -> Result<(),
 fn delete_everything(state: State<'_, Mutex<App>>) -> Result<(), String> {
     let mut app = state.lock().map_err(|e| e.to_string())?;
     let dir = app.store.dir().to_path_buf();
-    let _ = secrets::forget();
+    secrets::forget();
     match std::fs::remove_dir_all(&dir) {
         Ok(()) => {}
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
@@ -1207,7 +1320,7 @@ fn save_attachment(
         .headers()
         .get("x-name")
         .and_then(|v| v.to_str().ok())
-        .map(|v| percent_decode(v))
+        .map(percent_decode)
         .unwrap_or_default();
     let note_id = request
         .headers()
@@ -1493,14 +1606,9 @@ fn clear_versions(state: State<'_, Mutex<App>>, id: u64) -> Result<usize, String
         .unwrap_or_default();
     let versions = app.store.versions(&notebook, id);
     for version in &versions {
-        let name = format!(
-            "{}/{}/note-{}-{}.html",
-            ownnotes_core::store::VERSIONS_FOLDER,
-            ownnotes_core::store::workspace_folder(&notebook),
-            id,
-            version.at.timestamp_millis()
-        );
-        app.store.remove_version_file(&name);
+        // Remove the file where it actually lives, whatever folder the note
+        // was in when the version was taken and whether it ends in .md or .html.
+        app.store.remove_version_path(&version.path);
     }
     Ok(versions.len())
 }
@@ -1648,7 +1756,11 @@ fn retag(text: &str, from: &str, to: Option<&str>) -> (String, usize) {
 fn export_all(state: State<'_, Mutex<App>>, format: Option<String>) -> Result<String, String> {
     let app = state.lock().map_err(|e| e.to_string())?;
     let stamp = chrono::Local::now().format("%Y-%m-%d %H%M").to_string();
-    let home = std::env::var_os("HOME").map(std::path::PathBuf::from);
+    // Downloads lives under HOME on Unix and USERPROFILE on Windows (where
+    // HOME is usually not set); fall back to the data folder if neither has one.
+    let home = std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(std::path::PathBuf::from);
     let base = home
         .map(|home| home.join("Downloads"))
         .filter(|dir| dir.is_dir())
@@ -1758,14 +1870,10 @@ fn import_enex(
             }
         }
     }
-    // Into a locked notebook or space: sealed like everything there.
+    // Into a locked notebook or space: sealed like everything there; if any
+    // of them can't be sealed, the whole import is rolled back.
     let fresh: Vec<u64> = app.doc.notes.iter().rev().take(notes.len()).map(|n| n.id).collect();
-    for id in fresh {
-        if let Err(error) = seal_if_in_locked_container(&mut app, id) {
-            app.doc.notes.retain(|note| note.id != id);
-            return Err(error);
-        }
-    }
+    seal_fresh_notes(&mut app, &fresh)?;
     let App { store, doc, .. } = &mut *app;
     store.save(doc).map_err(|e| e.to_string())?;
     Ok(notes.len())
@@ -1775,21 +1883,31 @@ fn import_enex(
 #[tauri::command]
 fn import_bear(
     state: State<'_, Mutex<App>>,
-    request: tauri::ipc::Request<'_>,
     notebook: Option<u64>,
+    space: Option<String>,
+    archive: String,
 ) -> Result<usize, String> {
-    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
-        return Err("No archive was sent".into());
-    };
-    let notes = importer::parse_bear(bytes)?;
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(archive.as_bytes())
+        .map_err(|_| "The archive could not be read".to_string())?;
+    let notes = importer::parse_bear(&bytes)?;
     let mut app = state.lock().map_err(|e| e.to_string())?;
     let target = notebook
         .filter(|id| app.doc.has_notebook(*id))
         .or_else(|| app.doc.notebooks.first().map(|n| n.id))
         .ok_or("There is no notebook to import into")?;
+    let space = space.map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
     for imported in &notes {
-        app.doc.add_note(target, &imported.title, &imported.body);
+        let id = app.doc.add_note(target, &imported.title, &imported.body);
+        if let (Some(space), Some(note)) = (&space, app.doc.note_mut(id)) {
+            note.space = space.clone();
+        }
     }
+    // Into a locked notebook or space: sealed like everything there; if any
+    // of them can't be sealed, the whole import is rolled back.
+    let fresh: Vec<u64> = app.doc.notes.iter().rev().take(notes.len()).map(|n| n.id).collect();
+    seal_fresh_notes(&mut app, &fresh)?;
     let App { store, doc, .. } = &mut *app;
     store.save(doc).map_err(|e| e.to_string())?;
     Ok(notes.len())
@@ -1826,14 +1944,10 @@ fn import_simplenote(
             }
         }
     }
-    // Into a locked notebook or space: sealed like everything there.
+    // Into a locked notebook or space: sealed like everything there; if any
+    // of them can't be sealed, the whole import is rolled back.
     let fresh: Vec<u64> = app.doc.notes.iter().rev().take(notes.len()).map(|n| n.id).collect();
-    for id in fresh {
-        if let Err(error) = seal_if_in_locked_container(&mut app, id) {
-            app.doc.notes.retain(|note| note.id != id);
-            return Err(error);
-        }
-    }
+    seal_fresh_notes(&mut app, &fresh)?;
     let App { store, doc, .. } = &mut *app;
     store.save(doc).map_err(|e| e.to_string())?;
     Ok(notes.len())
@@ -1899,14 +2013,10 @@ async fn import_apple_notes(
             }
         }
     }
-    // Into a locked notebook or space: sealed like everything there.
+    // Into a locked notebook or space: sealed like everything there; if any
+    // of them can't be sealed, the whole import is rolled back.
     let fresh: Vec<u64> = app.doc.notes.iter().rev().take(notes.len()).map(|n| n.id).collect();
-    for id in fresh {
-        if let Err(error) = seal_if_in_locked_container(&mut app, id) {
-            app.doc.notes.retain(|note| note.id != id);
-            return Err(error);
-        }
-    }
+    seal_fresh_notes(&mut app, &fresh)?;
     let App { store, doc, .. } = &mut *app;
     store.save(doc).map_err(|e| e.to_string())?;
     Ok(AppleImport { imported: notes.len(), locked })
@@ -1941,14 +2051,10 @@ fn import_markdown(
             note.space = space.clone();
         }
     }
-    // Into a locked notebook or space: sealed like everything there.
+    // Into a locked notebook or space: sealed like everything there; if any
+    // of them can't be sealed, the whole import is rolled back.
     let fresh: Vec<u64> = app.doc.notes.iter().rev().take(notes.len()).map(|n| n.id).collect();
-    for id in fresh {
-        if let Err(error) = seal_if_in_locked_container(&mut app, id) {
-            app.doc.notes.retain(|note| note.id != id);
-            return Err(error);
-        }
-    }
+    seal_fresh_notes(&mut app, &fresh)?;
     let App { store, doc, .. } = &mut *app;
     store.save(doc).map_err(|e| e.to_string())?;
     Ok(notes.len())
@@ -2136,10 +2242,9 @@ fn lock_set(
     let current = current.unwrap_or_default();
     // Changing or removing a passcode needs the one in use, or anyone could
     // clear it and then open every locked note, notebook and space.
-    if let Some(hash) = &all.lock {
-        if extras::hash_passcode(&current) != *hash {
-            return Err("Enter the current passcode to change it".into());
-        }
+    if all.lock.is_some() {
+        check_app_passcode(&dir, &current)
+            .map_err(|_| "Enter the current passcode to change it".to_string())?;
     }
     let new = passcode.filter(|code| !code.is_empty());
 
@@ -2182,10 +2287,13 @@ fn lock_set(
         }
         let App { store, doc, .. } = &mut *app;
         store.save(doc).map_err(|e| e.to_string())?;
+        // Version files are sealed with the old passcode too: re-seal them,
+        // or the old passcode would still open the history.
+        store.reseal_versions(&current, new_code);
     }
 
     app.session_passcode = new.clone();
-    all.lock = new.map(|code| extras::hash_passcode(&code));
+    all.lock = new.map(|code| ownnotes_core::crypto::seal_passcode(&code));
     extras::save(&dir, &all)
 }
 
@@ -2195,7 +2303,7 @@ fn lock_check(state: State<'_, Mutex<App>>, passcode: String) -> Result<bool, St
     let all = extras::load(app.store.dir());
     Ok(all
         .lock
-        .map(|stored| stored == extras::hash_passcode(&passcode))
+        .map(|stored| ownnotes_core::crypto::check_passcode(&stored, &passcode))
         .unwrap_or(true))
 }
 
@@ -2327,7 +2435,7 @@ mod container_tests {
             Vec::new(),
         );
         let a = doc.add_note(1, "In work", "one");
-        let b = doc.add_note(2, "In a sub-notebook", "two");
+        let _b = doc.add_note(2, "In a sub-notebook", "two");
         let c = doc.add_note(3, "At home", "three");
         doc.note_mut(c).unwrap().space = "Personal".into();
         doc.note_mut(a).unwrap().also_in = vec![3];
@@ -2344,6 +2452,7 @@ mod container_tests {
             sync: Default::default(),
             unlocked: Default::default(),
             session_passcode: None,
+            problems: Vec::new(),
         };
         let mut ids = super::notes_in_container(&app, "notebook", "1");
         ids.sort();
@@ -2364,6 +2473,7 @@ mod container_tests {
             sync: Default::default(),
             unlocked: Default::default(),
             session_passcode: None,
+            problems: Vec::new(),
         };
         assert_eq!(super::notes_in_container(&app, "space", "Personal").len(), 1);
         assert_eq!(super::notes_in_container(&app, "space", DEFAULT_SPACE).len(), 2);
@@ -2413,8 +2523,19 @@ pub fn run() {
             // Do not set OWNNOTES_DATA_DIR: the core treats that variable as
             // test mode and disables the system keychain for WebDAV.
 
-            let (store, doc, saved, mut problems) = Store::open_at(dir);
-            if let Some(problem) = problems.pop() {
+            // A damaged app.json must be reported, not silently defaulted: it
+            // holds the app lock and the templates. The next save would
+            // replace it, so it is moved aside first.
+            let mut problems = match extras::load_checked(&dir) {
+                Err(problem) => vec![match extras::set_aside(&dir) {
+                    Ok(kept) => format!("{problem}. The file was kept as {kept}"),
+                    Err(error) => format!("{problem}. It couldn't be kept ({error})"),
+                }],
+                Ok(_) => Vec::new(),
+            };
+            let (store, doc, saved, store_problems) = Store::open_at(dir);
+            problems.extend(store_problems);
+            for problem in &problems {
                 eprintln!("{problem}");
             }
             {
@@ -2431,6 +2552,7 @@ pub fn run() {
                 sync: saved.sync,
                 unlocked: std::collections::HashMap::new(),
                 session_passcode: None,
+                problems,
             };
             platform::restore_window(app);
             app.manage(Mutex::new(state));
@@ -2439,8 +2561,15 @@ pub fn run() {
         .on_window_event(move |window, event| {
             // Only the main window's place is remembered, not a note's own
             // window.
-            if let (tauri::WindowEvent::CloseRequested { .. }, "main") = (event, window.label()) {
+            if let (tauri::WindowEvent::CloseRequested { api, .. }, "main") = (event, window.label()) {
                 use tauri::Manager;
+                // Hold the close while the interface flushes the open note,
+                // so the last keystrokes can't be lost; force-close if the
+                // interface doesn't answer in time.
+                if CLOSE_IN_PROGRESS.swap(true, Ordering::SeqCst) {
+                    return;
+                }
+                api.prevent_close();
                 let Ok(size) = window.inner_size() else { return };
                 let Ok(pos) = window.outer_position() else { return };
                 if let Some(app) = window.app_handle().try_state::<Mutex<App>>() {
@@ -2451,6 +2580,17 @@ pub fn run() {
                         let _ = extras::save(&dir, &all);
                     }
                 }
+                let handle = window.app_handle().clone();
+                std::thread::spawn(move || {
+                    use tauri::{Emitter, Manager};
+                    let _ = handle.emit("ownnotes://flush-before-close", ());
+                    // The interface answers with the finish_close command;
+                    // if it doesn't (hung webview), close anyway.
+                    std::thread::sleep(std::time::Duration::from_millis(1500));
+                    if let Some(window) = handle.get_webview_window("main") {
+                        let _ = window.destroy();
+                    }
+                });
             }
         })
         .register_uri_scheme_protocol("attachment", move |_ctx, request| {
@@ -2459,6 +2599,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             load,
+            finish_close,
             save_note,
             create_note,
             create_notebook,
@@ -2526,4 +2667,38 @@ pub fn run() {
         ])
         .run(context)
         .expect("OwnNotes failed to start");
+}
+
+#[cfg(test)]
+mod seal_rollback_tests {
+    #[test]
+    fn a_failed_seal_rolls_back_every_fresh_note() {
+        let dir = std::env::temp_dir().join(format!("ownnotes-test-seal-rollback-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let (store, doc, _, _) = ownnotes_core::store::Store::open_at(dir.clone());
+        let mut app = super::App {
+            store,
+            doc,
+            prefs: Default::default(),
+            sync: Default::default(),
+            unlocked: Default::default(),
+            session_passcode: None,
+            problems: Vec::new(),
+        };
+        let book = app.doc.notebooks.first().unwrap().id;
+        let mut all = super::extras::load(app.store.dir());
+        all.locked_notebooks.push(book);
+        super::extras::save(app.store.dir(), &all).unwrap();
+        let before = app.doc.notes.len();
+        let fresh: Vec<u64> = (0..3)
+            .map(|i| app.doc.add_note(book, &format!("n{i}"), "body"))
+            .collect();
+        assert_eq!(app.doc.notes.len(), before + 3);
+        // No session passcode: sealing into the locked notebook must fail…
+        let result = super::seal_fresh_notes(&mut app, &fresh);
+        assert!(result.is_err());
+        // …and roll back ALL fresh notes, not just the one that failed.
+        assert_eq!(app.doc.notes.len(), before);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

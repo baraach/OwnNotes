@@ -175,16 +175,57 @@ fn ends_a_block(tag: &str) -> bool {
 }
 
 /// The entities the editor writes, so a preview shows the character and not
-/// its code. `&amp;` goes last, or `&amp;lt;` would turn into `<`.
+/// its code. Single pass, so `&amp;#39;` becomes `&#39;` and not `'`. Numeric
+/// entities (`&#39;`, `&#x27;`, …) are decoded too.
 fn decode_entities(text: &str) -> String {
-    text.replace("&nbsp;", " ")
-        .replace('\u{a0}', " ")
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&quot;", "\"")
-        .replace("&#39;", "'")
-        .replace("&apos;", "'")
-        .replace("&amp;", "&")
+    let text = text.replace('\u{a0}', " ");
+    let mut out = String::with_capacity(text.len());
+    let mut rest: &str = text.as_str();
+    while let Some(pos) = rest.find('&') {
+        out.push_str(&rest[..pos]);
+        let after = &rest[pos + 1..];
+        let Some(end) = after.find(';') else {
+            out.push('&');
+            rest = after;
+            continue;
+        };
+        let entity = &after[..end];
+        let decoded = match entity {
+            "nbsp" => Some(" ".to_string()),
+            "lt" => Some("<".to_string()),
+            "gt" => Some(">".to_string()),
+            "quot" => Some("\"".to_string()),
+            "apos" => Some("'".to_string()),
+            "amp" => Some("&".to_string()),
+            _ => {
+                if let Some(num) = entity.strip_prefix('#') {
+                    let (digits, radix) = match num.strip_prefix(['x', 'X']) {
+                        Some(hex) => (hex, 16),
+                        None => (num, 10),
+                    };
+                    u32::from_str_radix(digits, radix)
+                        .ok()
+                        .and_then(char::from_u32)
+                        .map(|c| c.to_string())
+                } else {
+                    None
+                }
+            }
+        };
+        match decoded {
+            Some(text) => {
+                out.push_str(&text);
+                rest = &after[end + 1..];
+            }
+            None => {
+                // Not an entity we know: keep it exactly as written.
+                out.push_str(&rest[..pos + 1 + end + 1]);
+                rest = &after[end + 1..];
+            }
+        }
+    }
+    out.push_str(rest);
+    out
 }
 
 /// "Today, 8:14 PM", "Yesterday, 9:02 AM", "Oct 30, 1:44 PM" or "Oct 30, 2024".
@@ -607,6 +648,13 @@ mod preview_tests {
     #[test]
     fn a_preview_shows_characters_and_not_their_codes() {
         assert_eq!(clean_line("Tom &amp; Jerry&nbsp;&lt;3"), "Tom & Jerry <3");
+    }
+
+    #[test]
+    fn numeric_entities_decode_and_amp_decodes_only_once() {
+        assert_eq!(clean_line("&#65;&#x27;&#8217;"), "A'’");
+        assert_eq!(clean_line("&amp;#39;"), "&#39;", "&amp; must not enable a second decode");
+        assert_eq!(clean_line("&unknown; &amp"), "&unknown; &amp", "unknown or unterminated entities stay as written");
     }
 
     #[test]
