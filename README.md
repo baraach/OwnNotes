@@ -42,12 +42,9 @@ one-pane layout with platform-specific navigation and chrome.
 ## 📸 Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/macos.png" width="900" alt="OwnNotes on macOS with a note open: floating sidebar, note list and rich text editor" />
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/windows.png" width="440" alt="OwnNotes on Windows 11 with the Fluent toolbar, notebook tree and a note open" />
-  <img src="docs/screenshots/linux.png" width="440" alt="OwnNotes on Linux with the Adwaita header bar, notebook tree and a note open" />
+  <img src="docs/screenshots/macos.png" width="286" alt="OwnNotes on macOS with a note open: floating sidebar, note list and rich text editor" />
+  <img src="docs/screenshots/windows.png" width="286" alt="OwnNotes on Windows 11 with the Fluent toolbar, notebook tree and a note open" />
+  <img src="docs/screenshots/linux.png" width="286" alt="OwnNotes on Linux with the Adwaita header bar, notebook tree and a note open" />
 </p>
 
 <p align="center">
@@ -57,8 +54,8 @@ one-pane layout with platform-specific navigation and chrome.
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/ios.png" width="300" alt="OwnNotes on iPhone with the iOS list, floating navigation and Search action" />
-  <img src="docs/screenshots/android.png" width="300" alt="OwnNotes on Android with the Material search bar, note list and bottom navigation" />
+  <img src="docs/screenshots/ios.png" width="286" alt="OwnNotes on iPhone with the iOS list, floating navigation and Search action" />
+  <img src="docs/screenshots/android.png" width="286" alt="OwnNotes on Android with the Material search bar, note list and bottom navigation" />
 </p>
 
 <p align="center">
