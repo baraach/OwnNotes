@@ -15,7 +15,7 @@
         document.documentElement.dataset.platform = mac ? "mac" : win ? "windows" : "linux";
       })();
     </script>
-    <link rel="stylesheet" href="app.css?v=16" />
+    <link rel="stylesheet" href="app.css?v=17" />
   </head>
   <body>
     <div class="app">
@@ -193,7 +193,7 @@
               <label>Server address <input id="s-url" placeholder="https://example.com/dav/notes" /></label>
               <label>Username <input id="s-user" autocomplete="off" /></label>
               <label>Password <input id="s-pass" type="password" autocomplete="off" placeholder="Leave empty to keep the saved one" /></label>
-              <div class="modal-row">
+              <div class="modal-row sync-actions">
                 <button class="primary" id="s-connect">Connect</button>
                 <button class="ghost" id="s-save">Save</button>
                 <span class="spacer"></span>

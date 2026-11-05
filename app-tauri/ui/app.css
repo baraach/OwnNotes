@@ -2820,3 +2820,27 @@ html[data-glass="on"] .info.is-closing {
    traffic lights, so the reserved 62px gap is just dead space there. */
 html:not([data-platform="mac"]) .topbar > .traffic-space { display: none; }
 html:not([data-platform="mac"]) .topbar { padding-left: 12px; }
+
+/* Connect and Save are one action group: same pill, same height. */
+.sync-actions { gap: 8px; }
+.sync-actions #s-connect,
+.sync-actions #s-save {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 6px 18px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 500;
+}
+html[data-glass="on"] .sync-actions #s-connect,
+html[data-glass="on"] .sync-actions #s-save {
+  border-radius: 999px;
+}
+.sync-actions #s-save {
+  border: 1px solid var(--border);
+  background: var(--editor);
+  color: var(--text);
+}
+.sync-actions #s-save:hover { background: var(--hover); }
