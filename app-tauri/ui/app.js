@@ -4877,6 +4877,9 @@ const settledOverlays = new WeakSet();
 const reopeningOverlays = new WeakSet();
 
 function hideModalAfterFade(modal) {
+  // Settings is a full-page tab on phones, not an overlay. Fading it over the
+  // next tab makes the Settings page and its tab flash for a moment.
+  if (modal.id === "settings-modal" && isMobile()) return;
   if (closingOverlays.has(modal)) return;
   if (settledOverlays.has(modal)) {
     settledOverlays.delete(modal);
