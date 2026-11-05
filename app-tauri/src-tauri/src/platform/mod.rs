@@ -31,3 +31,18 @@ pub use linux::*;
 pub use ios::*;
 #[cfg(target_os = "android")]
 pub use android::*;
+
+/// Extensions that must be shown in the file manager rather than launched.
+pub(crate) fn is_runnable(path: &std::path::Path) -> bool {
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    const RUNNABLE: &[&str] = &[
+        "app", "command", "tool", "sh", "zsh", "bash", "scpt", "applescript", "workflow", "pkg",
+        "mpkg", "jar", "terminal", "exe", "bat", "cmd", "com", "msi", "ps1", "vbs", "lnk", "desktop",
+        "appimage", "run", "py", "pl", "rb", "webloc", "inetloc", "fileloc",
+    ];
+    RUNNABLE.contains(&ext.as_str())
+}

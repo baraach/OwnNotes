@@ -1,8 +1,9 @@
-//! macOS: overlay window, native printing and file opening.
+//! macOS: overlay window, printing, files and clipboard.
 
 use std::path::{Path, PathBuf};
 
 use tauri::{App, AppHandle, Manager, Runtime, WebviewWindow};
+use tauri_plugin_opener::OpenerExt;
 
 pub fn data_dir<R: Runtime>(_app: &App<R>) -> PathBuf {
     ownnotes_core::store::data_dir()
@@ -61,53 +62,44 @@ pub fn open_note_window(app: AppHandle, id: u64) -> Result<(), String> {
     .map_err(|e| e.to_string())
 }
 
-pub fn open_url(url: &str) -> Result<(), String> {
+pub fn open_url(app: &AppHandle, url: &str) -> Result<(), String> {
     let parsed = url::Url::parse(url).map_err(|_| "That isn't a web address".to_string())?;
     if !matches!(parsed.scheme(), "http" | "https") {
         return Err("Only web links can be opened".into());
     }
-    system_open(parsed.as_str())
+    app.opener()
+        .open_url(parsed.as_str(), None::<&str>)
+        .map_err(|e| e.to_string())
 }
 
-pub fn open_path(path: &Path) -> Result<(), String> {
-    let ext = path
-        .extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("")
-        .to_ascii_lowercase();
-    const RUNNABLE: &[&str] = &[
-        "app", "command", "tool", "sh", "zsh", "bash", "scpt", "applescript", "workflow", "pkg",
-        "mpkg", "jar", "terminal", "exe", "bat", "cmd", "com", "msi", "ps1", "vbs", "lnk", "desktop",
-        "appimage", "run", "py", "pl", "rb", "webloc", "inetloc", "fileloc",
-    ];
-    if RUNNABLE.contains(&ext.as_str()) {
-        return reveal(path);
+pub fn open_path(app: &AppHandle, path: &Path) -> Result<(), String> {
+    if crate::platform::is_runnable(path) {
+        return reveal(app, path);
     }
-    system_open(path)
+    app.opener()
+        .open_path(path.to_string_lossy().to_string(), None::<&str>)
+        .map_err(|e| e.to_string())
+}
+
+pub fn reveal(app: &AppHandle, path: &Path) -> Result<(), String> {
+    app.opener()
+        .reveal_item_in_dir(path)
+        .map_err(|e| e.to_string())
 }
 
 pub fn copy_text(text: &str) -> Result<(), String> {
     use std::io::Write;
     let mut command = std::process::Command::new("pbcopy");
-    let mut child = command.stdin(std::process::Stdio::piped()).spawn().map_err(|e| e.to_string())?;
-    child.stdin.take().ok_or("No clipboard input")?.write_all(text.as_bytes()).map_err(|e| e.to_string())?;
+    let mut child = command
+        .stdin(std::process::Stdio::piped())
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    child
+        .stdin
+        .take()
+        .ok_or("No clipboard input")?
+        .write_all(text.as_bytes())
+        .map_err(|e| e.to_string())?;
     child.wait().map_err(|e| e.to_string())?;
     Ok(())
-}
-
-fn system_open(target: impl AsRef<std::ffi::OsStr>) -> Result<(), String> {
-    std::process::Command::new("open")
-        .arg(target)
-        .spawn()
-        .map(drop)
-        .map_err(|e| e.to_string())
-}
-
-pub fn reveal(path: &Path) -> Result<(), String> {
-    std::process::Command::new("open")
-        .arg("-R")
-        .arg(path)
-        .spawn()
-        .map(drop)
-        .map_err(|e| e.to_string())
 }

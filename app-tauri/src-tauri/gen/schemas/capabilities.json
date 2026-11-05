@@ -1,1 +1,1 @@
-{"default":{"identifier":"default","description":"The main and note windows. Dragging the title bar needs the window start-dragging permission.","local":true,"windows":["*"],"permissions":["core:default","core:window:allow-start-dragging","core:window:allow-set-theme"]}}
+{"default":{"identifier":"default","description":"The main and note windows. Dragging the title bar needs the window start-dragging permission.","local":true,"windows":["*"],"permissions":["core:default","core:window:allow-start-dragging","core:window:allow-set-theme","opener:default"]}}

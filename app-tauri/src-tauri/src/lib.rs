@@ -1141,11 +1141,11 @@ fn note_details(state: State<'_, Mutex<App>>, id: u64) -> Result<serde_json::Val
 }
 
 #[tauri::command]
-fn open_backups(state: State<'_, Mutex<App>>) -> Result<(), String> {
+fn open_backups(app_handle: tauri::AppHandle, state: State<'_, Mutex<App>>) -> Result<(), String> {
     let app = state.lock().map_err(|e| e.to_string())?;
     let dir = app.store.dir().join("backups");
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    platform::reveal(&dir)
+    platform::reveal(&app_handle, &dir)
 }
 
 #[tauri::command]
@@ -1240,20 +1240,20 @@ fn percent_decode(text: &str) -> String {
 
 /// Open an attachment in the app the system uses for that kind of file.
 #[tauri::command]
-fn open_attachment(state: State<'_, Mutex<App>>, reference: String) -> Result<(), String> {
+fn open_attachment(app_handle: tauri::AppHandle, state: State<'_, Mutex<App>>, reference: String) -> Result<(), String> {
     let dir = state.lock().map_err(|e| e.to_string())?.store.dir().to_path_buf();
     let path = attachments::path(&dir, &reference).ok_or("That isn't an attachment")?;
     if !path.exists() {
         return Err("This file hasn't been downloaded yet — sync, then try again.".into());
     }
-    platform::open_path(&path)
+    platform::open_path(&app_handle, &path)
 }
 
 /// Open a web link in the default browser. Only http(s) links, so a note
 /// can't make this start a program.
 #[tauri::command]
-fn open_url(url: String) -> Result<(), String> {
-    platform::open_url(&url)
+fn open_url(app: tauri::AppHandle, url: String) -> Result<(), String> {
+    platform::open_url(&app, &url)
 }
 
 /// Give a note its own copies of the attachments its text points at in
@@ -1962,7 +1962,7 @@ fn copy_text(text: String) -> Result<(), String> {
 /// Print a note (or save it as PDF) by handing a clean copy to the browser,
 /// which has the print panel the web view doesn't.
 #[tauri::command]
-fn print_note(state: State<'_, Mutex<App>>, id: u64) -> Result<(), String> {
+fn print_note(app_handle: tauri::AppHandle, state: State<'_, Mutex<App>>, id: u64) -> Result<(), String> {
     let app = state.lock().map_err(|e| e.to_string())?;
     let note = app.doc.note(id).ok_or("No such note")?;
     if note.locked && !app.unlocked.contains_key(&id) {
@@ -1984,7 +1984,7 @@ fn print_note(state: State<'_, Mutex<App>>, id: u64) -> Result<(), String> {
     );
     let path = std::env::temp_dir().join(format!("ownnotes-print-{id}.html"));
     std::fs::write(&path, page).map_err(|e| e.to_string())?;
-    platform::open_path(&path)
+    platform::open_path(&app_handle, &path)
 }
 
 fn escape_html(text: &str) -> String {
@@ -2398,6 +2398,7 @@ pub fn run() {
     let setup_root = Arc::clone(&attachment_root);
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
         .setup(move |app| {
             use tauri::Manager;
 
