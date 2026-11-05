@@ -1,242 +1,441 @@
-/* Phone and tablet layout. Everything here is scoped to html[data-mobile],
-   so desktop windows never match. Loaded after app.css and platform.css. */
+/* The complete iOS phone and tablet design. Everything is scoped to the iOS
+   platform attribute, so no other platform can match it. It follows the
+   system conventions: large titles, inset grouped lists, floating glass bars
+   and pages that push rather than pop up. Colours derive from the app's theme
+   tokens so accent colours and named looks keep working. */
 
-/* ------------------------------------------------------------ mobile */
+/* ---------------------------------------------------------------- tokens */
 
-
-/* A phone gets one pane at a time: the note list, or the editor. The
-   sidebar becomes a drawer. The desktop rules stay above this block and
-   are untouched because data-mobile is false there. */
-html[data-platform="ios"][data-mobile="true"] .topbar {
-  height: calc(48px + env(safe-area-inset-top));
-  padding: env(safe-area-inset-top) 10px 0;
-  gap: 6px;
+html[data-platform="ios"][data-mobile="true"] {
+  --sat: env(safe-area-inset-top);
+  --sab: env(safe-area-inset-bottom);
+  --keyboard-inset: 0px;
+  --ios-bg: color-mix(in srgb, var(--editor) 90%, #787880);
+  --ios-card: var(--editor);
+  --ios-page: var(--editor);
+  --ios-secondary: color-mix(in srgb, var(--text) 60%, transparent);
+  --ios-tertiary: color-mix(in srgb, var(--text) 30%, transparent);
+  --ios-separator: color-mix(in srgb, var(--text) 16%, transparent);
+  --ios-fill: color-mix(in srgb, #787880 14%, transparent);
+  --ios-press: color-mix(in srgb, var(--text) 10%, var(--ios-card));
+  --ios-glass: color-mix(in srgb, var(--ios-card) 50%, transparent);
+  --ios-blur: blur(44px) saturate(210%);
+  --ios-spring: cubic-bezier(0.34, 1.45, 0.64, 1);
+  --ios-ease: cubic-bezier(0.2, 0.85, 0.25, 1);
+  --ios-glass-edge: color-mix(in srgb, #fff 45%, transparent);
+  --ios-glass-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+  --ios-tabbar-gap: max(calc(var(--sab) - 12px), 10px);
+  -webkit-tap-highlight-color: transparent;
 }
-html[data-platform="ios"][data-mobile="true"] .topbar > :is(.traffic-space, .drag-layer, .drag-strip, .spacer),
-html[data-platform="ios"][data-mobile="true"] .topbar > #undo,
-html[data-platform="ios"][data-mobile="true"] .topbar > #redo,
-html[data-platform="ios"][data-mobile="true"] .topbar > #sync-pill,
-html[data-platform="ios"][data-mobile="true"] .topbar > #sticky { display: none; }
-html[data-platform="ios"][data-mobile="true"] .topbar .search-box {
+html[data-platform="ios"][data-mobile="true"][data-theme="dark"] {
+  --ios-bg: color-mix(in srgb, var(--editor) 15%, #000);
+  --ios-card: color-mix(in srgb, var(--editor) 78%, #000);
+  --ios-page: color-mix(in srgb, var(--editor) 78%, #000);
+  --ios-press: color-mix(in srgb, #fff 12%, var(--ios-card));
+  --ios-fill: color-mix(in srgb, #787880 30%, transparent);
+  --ios-glass-edge: color-mix(in srgb, #fff 14%, transparent);
+  --ios-glass-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+}
+
+/* ------------------------------------------------------------- foundation */
+
+html[data-platform="ios"][data-mobile="true"] body,
+html[data-platform="ios"][data-mobile="true"] .app,
+html[data-platform="ios"][data-mobile="true"] .panes {
+  background: var(--ios-bg);
+  font-family: -apple-system, system-ui, sans-serif;
+  letter-spacing: normal;
+  overscroll-behavior: none;
+}
+html[data-platform="ios"][data-mobile="true"] .app { height: calc(100% - var(--keyboard-inset)); }
+/* The page shows through behind the keyboard's rounded corners. */
+html[data-platform="ios"][data-mobile="true"] body.mobile-editor { background: var(--ios-page); }
+html[data-platform="ios"][data-mobile="true"] .topbar,
+html[data-platform="ios"][data-mobile="true"] .list,
+html[data-platform="ios"][data-mobile="true"] .sidebar,
+html[data-platform="ios"][data-mobile="true"] .mobile-tabs,
+html[data-platform="ios"][data-mobile="true"] .editor-tools,
+html[data-platform="ios"][data-mobile="true"] .editor-foot,
+html[data-platform="ios"][data-mobile="true"] .format-bar,
+html[data-platform="ios"][data-mobile="true"] .settings-nav,
+html[data-platform="ios"][data-mobile="true"] .settings-tabs,
+html[data-platform="ios"][data-mobile="true"] .context-menu {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+html[data-platform="ios"][data-mobile="true"] input,
+html[data-platform="ios"][data-mobile="true"] textarea,
+html[data-platform="ios"][data-mobile="true"] select { -webkit-user-select: text; user-select: text; font-size: 17px; }
+html[data-platform="ios"][data-mobile="true"] .desktop-only,
+html[data-platform="ios"][data-mobile="true"] .pane-grip,
+html[data-platform="ios"][data-mobile="true"] .mobile-scrim,
+html[data-platform="ios"][data-mobile="true"] .mobile-compose,
+html[data-platform="ios"][data-mobile="true"] .back-android,
+html[data-platform="ios"][data-mobile="true"] #info-panel { display: none !important; }
+html[data-platform="ios"][data-mobile="true"] .mobile-only { display: block; }
+html[data-platform="ios"][data-mobile="true"] .tour-desktop { display: none; }
+html[data-platform="ios"][data-mobile="true"] .tour-mobile { display: block; }
+html[data-platform="ios"][data-mobile="true"][dir="rtl"] .back-ios { transform: scaleX(-1); }
+
+/* The glass used by every floating control. */
+html[data-platform="ios"][data-mobile="true"] .topbar .icon,
+html[data-platform="ios"][data-mobile="true"] .editor-tools .icon,
+html[data-platform="ios"][data-mobile="true"] #settings-back {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  border: 0;
+  border-radius: 22px;
+  color: var(--text);
+  background: var(--ios-glass);
+  -webkit-backdrop-filter: var(--ios-blur);
+  backdrop-filter: var(--ios-blur);
+  box-shadow: var(--ios-glass-shadow), inset 0 0.5px 0 var(--ios-glass-edge);
+  transition: transform 160ms ease, opacity 160ms ease;
+}
+html[data-platform="ios"][data-mobile="true"] .topbar .icon svg,
+html[data-platform="ios"][data-mobile="true"] .editor-tools .icon svg,
+html[data-platform="ios"][data-mobile="true"] #settings-back svg {
+  width: 22px;
+  height: 22px;
+  stroke-width: 1.8;
+}
+html[data-platform="ios"][data-mobile="true"] .topbar .icon:hover,
+html[data-platform="ios"][data-mobile="true"] .editor-tools .icon:hover,
+html[data-platform="ios"][data-mobile="true"] #settings-back:hover { background: var(--ios-glass); color: var(--text); }
+html[data-platform="ios"][data-mobile="true"] .topbar .icon:active,
+html[data-platform="ios"][data-mobile="true"] .editor-tools .icon:active,
+html[data-platform="ios"][data-mobile="true"] #settings-back:active { opacity: 0.6; }
+
+/* ------------------------------------------------------------ navigation */
+
+html[data-platform="ios"][data-mobile="true"] .app { position: relative; }
+html[data-platform="ios"][data-mobile="true"] .topbar {
+  position: absolute;
+  top: 0;
+  inset-inline: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: calc(52px + var(--sat));
+  margin: 0;
+  padding: var(--sat) 16px 0;
+  gap: 8px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: none;
+  -webkit-app-region: no-drag;
+}
+html[data-platform="ios"][data-mobile="true"] .topbar::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 -22px;
+  z-index: -1;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--ios-bg) 40%, transparent);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  -webkit-mask-image: linear-gradient(#000 55%, transparent);
+  mask-image: linear-gradient(#000 55%, transparent);
+}
+html[data-platform="ios"][data-mobile="true"] .topbar > :is(.traffic-space, .drag-layer, .drag-strip, .spacer, #toggle-sidebar, #undo, #redo, #sync-pill, #new-note, #lock, #sticky, #open-settings) { display: none !important; }
+html[data-platform="ios"][data-mobile="true"] .topbar .search-box { display: none; }
+html[data-platform="ios"][data-mobile="true"] #mobile-search-cancel { display: none; }
+html[data-platform="ios"][data-mobile="true"] .topbar .mobile-top-action { display: grid; }
+
+/* Sort and sync share one capsule, as grouped bar buttons do. */
+html[data-platform="ios"][data-mobile="true"] #mobile-sort { order: 1; border-radius: 22px 0 0 22px; clip-path: inset(-30px 0 -30px -30px); }
+html[data-platform="ios"][data-mobile="true"] #sync-now { order: 2; margin-inline-start: -8px; border-radius: 0 22px 22px 0; clip-path: inset(-30px -30px -30px 0); }
+html[data-platform="ios"][data-mobile="true"][dir="rtl"] #mobile-sort { border-radius: 0 22px 22px 0; clip-path: inset(-30px -30px -30px 0); }
+html[data-platform="ios"][data-mobile="true"][dir="rtl"] #sync-now { border-radius: 22px 0 0 22px; clip-path: inset(-30px 0 -30px -30px); }
+html[data-platform="ios"][data-mobile="true"] #mobile-new-note { order: 3; color: var(--accent); }
+html[data-platform="ios"][data-mobile="true"] body.mobile-nav #mobile-sort { display: none; }
+html[data-platform="ios"][data-mobile="true"] body.mobile-nav #sync-now { margin-inline-start: 0; border-radius: 22px; clip-path: none; }
+
+/* Search takes over the bar until it is cancelled. */
+html[data-platform="ios"][data-mobile="true"] body.mobile-search .topbar > :is(#mobile-sort, #sync-now, #mobile-new-note) { display: none; }
+html[data-platform="ios"][data-mobile="true"] body.mobile-search .topbar .search-box {
+  display: flex;
   flex: 1 1 auto;
   width: auto;
   min-width: 0;
+  height: 44px;
+  padding: 0 14px;
+  gap: 8px;
+  border: 0;
+  border-radius: 22px;
+  background: var(--ios-glass);
+  -webkit-backdrop-filter: var(--ios-blur);
+  backdrop-filter: var(--ios-blur);
+  box-shadow: var(--ios-glass-shadow), inset 0 0.5px 0 var(--ios-glass-edge);
 }
-html[data-platform="ios"][data-mobile="true"] .topbar #new-note {
+html[data-platform="ios"][data-mobile="true"] body.mobile-search .topbar .search-box svg { width: 18px; height: 18px; color: var(--ios-secondary); }
+html[data-platform="ios"][data-mobile="true"] .topbar .search-box input { flex: 1; min-width: 0; border: 0; background: transparent; box-shadow: none; }
+html[data-platform="ios"][data-mobile="true"] body.mobile-search #mobile-search-cancel {
+  display: block;
+  order: 4;
   flex: 0 0 auto;
-  height: 32px;
-  padding: 0 12px;
-  font-size: 13px;
+  height: 44px;
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 17px;
 }
-html[data-platform="ios"][data-mobile="true"] #lock,
-html[data-platform="ios"][data-mobile="true"] #open-settings,
-html[data-platform="ios"][data-mobile="true"] #sync-now { flex: 0 0 auto; }
+html[data-platform="ios"][data-mobile="true"] #mobile-search-cancel svg { display: none; }
+html[data-platform="ios"][data-mobile="true"] body.mobile-search .list-head { display: none; }
+html[data-platform="ios"][data-mobile="true"] body.mobile-search .cards { padding-top: 10px; }
+
+/* Hidden in the editor, which has a bar of its own. */
+html[data-platform="ios"][data-mobile="true"] body.mobile-editor .topbar { display: none; }
+
+/* -------------------------------------------------------------- note list */
 
 html[data-platform="ios"][data-mobile="true"] .panes {
   display: block;
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
   padding: 0;
   gap: 0;
+}
+html[data-platform="ios"][data-mobile="true"] .panes > * + * { border: 0; }
+html[data-platform="ios"][data-mobile="true"] .list,
+html[data-platform="ios"][data-mobile="true"] .editor {
   position: relative;
+  width: 100%;
+  height: 100%;
+  flex: 1 1 auto;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 html[data-platform="ios"][data-mobile="true"] .list {
   display: flex;
-  width: 100%;
-  height: 100%;
-  flex: 1 1 auto;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
+  flex-direction: column;
+  padding-top: calc(52px + var(--sat));
+  background: var(--ios-bg);
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
-html[data-platform="ios"][data-mobile="true"] .editor {
-  display: none;
-  width: 100%;
-  height: 100%;
-  flex: 1 1 auto;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-}
-html[data-platform="ios"][data-mobile="true"] body.mobile-editor .list { display: none; }
-html[data-platform="ios"][data-mobile="true"] body.mobile-editor .editor { display: flex; }
+html[data-platform="ios"][data-mobile="true"] body.mobile-editor .list,
+html[data-platform="ios"][data-mobile="true"] body.mobile-nav .list,
+html[data-platform="ios"][data-mobile="true"] body.mobile-nav .editor { display: none; }
 
-html[data-platform="ios"][data-mobile="true"] .list-head,
-html[data-platform="ios"][data-mobile="true"] .editor-tools {
-  height: 46px;
-  padding: 0 8px 0 14px;
-}
-html[data-platform="ios"][data-mobile="true"] .cards { padding: 6px 10px calc(22px + env(safe-area-inset-bottom)); }
-html[data-platform="ios"][data-mobile="true"] .card { min-height: 64px; padding: 13px 12px; }
-html[data-platform="ios"][data-mobile="true"] .row { padding: 10px; font-size: 15px; }
-html[data-platform="ios"][data-mobile="true"] .section-title { padding-top: 12px; padding-bottom: 6px; }
-
-/* Drawer */
-html[data-platform="ios"][data-mobile="true"] .sidebar {
+html[data-platform="ios"][data-mobile="true"] .list-head {
   display: flex;
-  position: fixed;
-  top: calc(48px + env(safe-area-inset-top));
-  bottom: 0;
-  left: 0;
-  width: min(86vw, 330px);
-  height: auto;
   flex: 0 0 auto;
-  padding: 0;
-  overflow: hidden;
-  z-index: 60;
-  border-radius: 0 18px 18px 0;
-  background: var(--sidebar);
-  box-shadow: 18px 0 50px rgba(0, 0, 0, 0.22);
-  transform: translateX(-102%);
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transition: transform 260ms var(--ease), opacity 180ms var(--ease), visibility 260ms;
+  align-items: baseline;
+  gap: 8px;
+  height: auto;
+  padding: 2px 20px 10px;
+  border: 0;
+  background: transparent;
 }
+html[data-platform="ios"][data-mobile="true"] .list-head > :is(#sort, #new-note-2, .spacer) { display: none; }
+html[data-platform="ios"][data-mobile="true"] #list-title {
+  margin: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 41px;
+  letter-spacing: 0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html[data-platform="ios"][data-mobile="true"] #list-count { color: var(--ios-secondary); font-size: 17px; font-weight: 400; }
+
+html[data-platform="ios"][data-mobile="true"] .cards {
+  flex: 0 0 auto;
+  gap: 0;
+  padding: 0 16px calc(96px + var(--sab));
+  background: transparent;
+  overflow: visible;
+}
+html[data-platform="ios"][data-mobile="true"] .card {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 66px;
+  margin: 0;
+  padding: 11px 16px;
+  border: 0;
+  border-radius: 0;
+  background: var(--ios-card);
+  box-shadow: none;
+  transition: background-color 180ms ease;
+}
+html[data-platform="ios"][data-mobile="true"] .card:first-child { border-top-left-radius: 22px; border-top-right-radius: 22px; }
+html[data-platform="ios"][data-mobile="true"] .card:last-child { border-bottom-left-radius: 22px; border-bottom-right-radius: 22px; }
+html[data-platform="ios"][data-mobile="true"] .card + .card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  inset-inline: 16px 0;
+  height: 0.5px;
+  background: var(--ios-separator);
+}
+html[data-platform="ios"][data-mobile="true"] .card:hover,
+html[data-platform="ios"][data-mobile="true"] .card.active { background: var(--ios-card); }
+html[data-platform="ios"][data-mobile="true"] .card:active,
+html[data-platform="ios"][data-mobile="true"] .card.picked { background: var(--ios-press); transition: none; }
+/* Title on one line; date and first words share the next, as Notes does. */
+html[data-platform="ios"][data-mobile="true"] .card-text { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; flex: 1; min-width: 0; gap: 2px 7px; }
+html[data-platform="ios"][data-mobile="true"] .card .top { grid-column: 1 / -1; min-width: 0; display: flex; align-items: center; gap: 6px; }
+html[data-platform="ios"][data-mobile="true"] .card .name { color: var(--text); font-size: 17px; font-weight: 600; line-height: 22px; }
+html[data-platform="ios"][data-mobile="true"] .card .badge { order: -1; }
+html[data-platform="ios"][data-mobile="true"] .card .badge svg { width: 13px; height: 13px; }
+html[data-platform="ios"][data-mobile="true"] .card .meta { grid-row: 2; grid-column: 1; white-space: nowrap; color: var(--ios-secondary); font-size: 15px; line-height: 20px; opacity: 1; }
+html[data-platform="ios"][data-mobile="true"] .card .preview {
+  grid-row: 2;
+  grid-column: 2;
+  display: block;
+  -webkit-line-clamp: none;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ios-secondary);
+  font-size: 15px;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html[data-platform="ios"][data-mobile="true"] .card .thumb { width: 44px; height: 44px; flex: 0 0 44px; border-radius: 8px; object-fit: cover; }
+
+/* ---------------------------------------------------------------- browse */
+
+html[data-platform="ios"][data-mobile="true"] .sidebar,
 html[data-platform="ios"][data-mobile="true"] .sidebar.is-hidden {
-  width: min(86vw, 330px);
-  flex-basis: auto;
-  opacity: 0;
-  transform: translateX(-102%);
-  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  flex: 1 1 auto;
+  padding: calc(52px + var(--sat)) 0 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border: 0;
+  border-radius: 0;
+  background: var(--ios-bg);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: none;
+  opacity: 1;
+  transform: none;
+  z-index: 1;
 }
 html[data-platform="ios"][data-mobile="true"] body.mobile-nav .sidebar,
-html[data-platform="ios"][data-mobile="true"] body.mobile-nav .sidebar.is-hidden {
-  width: min(86vw, 330px);
-  flex-basis: auto;
-  opacity: 1;
-  visibility: visible;
-  transform: none;
-  pointer-events: auto;
-}
-html[data-platform="ios"][data-mobile="true"] .sidebar-scroll {
-  padding: 8px 10px calc(24px + env(safe-area-inset-bottom));
-}
-html[data-platform="ios"][data-mobile="true"] .mobile-scrim {
-  display: block;
-  position: fixed;
-  top: calc(48px + env(safe-area-inset-top));
-  right: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 55;
-  border: 0;
-  padding: 0;
-  background: rgba(15, 20, 28, 0.3);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 180ms var(--ease);
-}
-html[data-platform="ios"][data-mobile="true"] body.mobile-nav .mobile-scrim {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-/* Editor */
-html[data-platform="ios"][data-mobile="true"] .editor-tools { padding-left: 8px; gap: 2px; }
-html[data-platform="ios"][data-mobile="true"] .mobile-back { display: grid; margin-inline-end: 4px; }
-html[data-platform="ios"][data-mobile="true"] #export,
-html[data-platform="ios"][data-mobile="true"] #history,
-html[data-platform="ios"][data-mobile="true"] #focus,
-html[data-platform="ios"][data-mobile="true"] #info,
-html[data-platform="ios"][data-mobile="true"] #print { display: none !important; }
-html[data-platform="ios"][data-mobile="true"] .title {
-  font-size: 26px;
-  padding: 2px 16px 0;
-}
-html[data-platform="ios"][data-mobile="true"] .body {
-  padding: 6px 16px calc(116px + env(safe-area-inset-bottom));
-  font-size: 16px;
-  line-height: 1.55;
-  overscroll-behavior: contain;
-}
-html[data-platform="ios"][data-mobile="true"] .editor-dock {
-  left: 8px;
-  right: 8px;
-  bottom: calc(8px + env(safe-area-inset-bottom));
-  border-radius: 16px;
-}
-html[data-platform="ios"][data-mobile="true"] .editor-dock .format-bar {
-  padding: 5px 6px 0;
-}
-html[data-platform="ios"][data-mobile="true"] .editor-foot {
-  padding: 2px 10px calc(6px + env(safe-area-inset-bottom));
-}
-html[data-platform="ios"][data-mobile="true"] .icon { width: 34px; height: 34px; }
-
-/* Full-screen settings on a phone. */
-html[data-platform="ios"][data-mobile="true"] .modal { padding: 12px; }
-html[data-platform="ios"][data-mobile="true"] #settings-modal { padding: 0; align-items: stretch; justify-content: stretch; }
-html[data-platform="ios"][data-mobile="true"] .modal .sheet.wide {
-  width: 100%;
-  height: 100%;
-  max-height: none;
-  margin: 0;
-  border-radius: 0;
-}
-html[data-platform="ios"][data-mobile="true"] .settings-body {
-  flex-direction: column;
-  min-height: 0;
-  height: 100%;
-  max-height: none;
-}
-html[data-platform="ios"][data-mobile="true"] .settings-tabs {
-  width: auto;
-  flex: 0 0 auto;
-  flex-direction: row;
-  overflow-x: auto;
-  padding: 8px;
-  border-right: 0;
-  border-bottom: 1px solid var(--border);
-  background: var(--editor);
-}
-html[data-platform="ios"][data-mobile="true"] .settings-tabs button { white-space: nowrap; padding: 8px 10px; }
-html[data-platform="ios"][data-mobile="true"] .settings-pages {
-  padding: 16px;
-  padding-bottom: calc(24px + env(safe-area-inset-bottom));
-}
-html[data-platform="ios"][data-mobile="true"] .sheet.wide > .modal-row {
-  padding: 10px 16px calc(14px + env(safe-area-inset-bottom));
-  background: var(--editor);
-}
-html[data-platform="ios"][data-mobile="true"] .modal .sheet:not(.wide) {
-  width: calc(100vw - 24px);
-  max-height: 86vh;
-}
-html[data-platform="ios"][data-mobile="true"] input,
-html[data-platform="ios"][data-mobile="true"] select,
-html[data-platform="ios"][data-mobile="true"] textarea { font-size: 16px; }
-html[data-platform="ios"][data-mobile="true"] body { overscroll-behavior: none; }
-
-html[data-platform="ios"][data-mobile="true"] .pane-grip { display: none !important; }
-
-html[data-platform="ios"][data-mobile="true"] .modal .sheet.wide { border-radius: 0 !important; }
-html[data-platform="ios"][data-mobile="true"] .settings-tabs { padding-top: calc(8px + env(safe-area-inset-top)); }
-html[data-platform="ios"][data-mobile="true"] .sync-actions { flex-wrap: wrap; }
-html[data-platform="ios"][data-mobile="true"] #s-connected {
-  flex-basis: 100%;
-  margin-top: 6px;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-html[data-platform="ios"][data-mobile="true"] .modal .sheet:not(.wide) {
-  margin-top: calc(12px + env(safe-area-inset-top));
-}
-
-/* Features that need a desktop file picker or window. */
-html[data-platform="ios"][data-mobile="true"] .desktop-only { display: none !important; }
-
-/* ------------------------------------------------------ bottom navigation */
-
-
-html[data-platform="ios"][data-mobile="true"] .mobile-only { display: block; }
-html[data-platform="ios"][data-mobile="true"] .mobile-tabs {
+html[data-platform="ios"][data-mobile="true"] body.mobile-nav .sidebar.is-hidden { display: flex; }
+html[data-platform="ios"][data-mobile="true"] .sidebar .pane-head {
   display: flex;
-  flex: 0 0 auto;
+  align-items: baseline;
+  justify-content: space-between;
+  height: auto;
+  padding: 2px 20px 10px;
+  border: 0;
+  background: transparent;
+}
+html[data-platform="ios"][data-mobile="true"] .sidebar .pane-title { color: var(--text); font-size: 34px; font-weight: 700; line-height: 41px; letter-spacing: 0.01em; }
+html[data-platform="ios"][data-mobile="true"] .space-button { color: var(--accent); font-size: 17px; }
+html[data-platform="ios"][data-mobile="true"] .sidebar-scroll { flex: 0 0 auto; overflow: visible; padding: 0 16px calc(96px + var(--sab)); }
+html[data-platform="ios"][data-mobile="true"] .sidebar .nav { padding: 0; margin: 0 0 8px; overflow: hidden; border-radius: 22px; background: var(--ios-card); }
+html[data-platform="ios"][data-mobile="true"] .sidebar .nav:empty { display: none; }
+html[data-platform="ios"][data-mobile="true"] .sidebar .nav.links { margin-top: 16px; }
+html[data-platform="ios"][data-mobile="true"] .sidebar .nav.mobile-only { display: block; }
+html[data-platform="ios"][data-mobile="true"] .sidebar .section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 20px 16px 7px;
+  color: var(--ios-secondary);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
+}
+html[data-platform="ios"][data-mobile="true"] .sidebar .section-title .tiny { margin-inline-start: auto; color: var(--accent); font-size: 24px; font-weight: 300; background: none; }
+html[data-platform="ios"][data-mobile="true"] .sidebar .row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 48px;
+  margin: 0;
+  padding: 8px 16px;
+  gap: 13px;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 17px;
+  box-shadow: none;
+}
+html[data-platform="ios"][data-mobile="true"] .sidebar .row + .row::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  inset-inline: 52px 0;
+  height: 0.5px;
+  background: var(--ios-separator);
+}
+html[data-platform="ios"][data-mobile="true"] .sidebar .row:hover,
+html[data-platform="ios"][data-mobile="true"] .sidebar .row.active { background: transparent; color: var(--text); }
+html[data-platform="ios"][data-mobile="true"] .sidebar .row:active { background: var(--ios-press); }
+html[data-platform="ios"][data-mobile="true"] .sidebar .row .glyph { width: 23px; height: 23px; flex: 0 0 23px; color: var(--accent); }
+html[data-platform="ios"][data-mobile="true"] .sidebar .row .glyph svg { width: 22px; height: 22px; stroke-width: 1.6; }
+html[data-platform="ios"][data-mobile="true"] .sidebar .row.active .glyph { color: var(--accent); }
+html[data-platform="ios"][data-mobile="true"] .sidebar .row .label { flex: 1 1 auto; }
+html[data-platform="ios"][data-mobile="true"] .sidebar .row .count { margin: 0; color: var(--ios-secondary); font-size: 17px; }
+html[data-platform="ios"][data-mobile="true"] .sidebar #nav .row { padding-inline-start: 16px !important; }
+/* Templates, Trash and Lock are one group, though each has its own wrapper. */
+html[data-platform="ios"][data-mobile="true"] .sidebar .nav.links { margin: 0; border-radius: 0; }
+html[data-platform="ios"][data-mobile="true"] .sidebar #templates-row { margin-top: 20px; border-radius: 22px 22px 0 0; }
+html[data-platform="ios"][data-mobile="true"] .sidebar .nav.mobile-only { margin-bottom: 8px; border-radius: 0 0 22px 22px; }
+html[data-platform="ios"][data-mobile="true"] .sidebar .nav.links + .nav.links .row::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  inset-inline: 16px 0;
+  height: 0.5px;
+  background: var(--ios-separator);
+}
+
+/* -------------------------------------------------------- floating tab bar */
+
+html[data-platform="ios"][data-mobile="true"] .mobile-tabs {
+  position: fixed;
+  inset-inline: 21px;
+  bottom: var(--ios-tabbar-gap);
+  z-index: 45;
+  display: flex;
   align-items: stretch;
-  z-index: 40;
-  height: calc(58px + env(safe-area-inset-bottom));
-  padding: 0 8px env(safe-area-inset-bottom);
-  border-top: 1px solid var(--border);
-  background: var(--editor);
+  height: 62px;
+  padding: 4px;
+  padding-inline-end: 74px;
+  border: 0;
+  background: none;
+}
+/* The tabs share one capsule; Search stands apart in its own circle. */
+html[data-platform="ios"][data-mobile="true"] .mobile-tabs::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline: 0 70px;
+  z-index: -1;
+  border-radius: 31px;
+  background: var(--ios-glass);
+  -webkit-backdrop-filter: var(--ios-blur);
+  backdrop-filter: var(--ios-blur);
+  box-shadow: var(--ios-glass-shadow), inset 0 0.5px 0 var(--ios-glass-edge);
 }
 html[data-platform="ios"][data-mobile="true"] .mobile-tabs button {
   flex: 1 1 0;
@@ -244,506 +443,838 @@ html[data-platform="ios"][data-mobile="true"] .mobile-tabs button {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 1px;
   min-width: 0;
-  padding: 4px 2px;
+  padding: 0;
   border: 0;
-  border-radius: 12px;
+  border-radius: 27px;
   background: transparent;
-  color: var(--faint);
+  color: var(--text);
   font-size: 10px;
   font-weight: 500;
-  letter-spacing: 0.01em;
+  transition: background-color 180ms ease;
 }
+html[data-platform="ios"][data-mobile="true"] .mobile-tabs button { position: relative; z-index: 1; }
 html[data-platform="ios"][data-mobile="true"] .mobile-tabs button.on { color: var(--accent); }
-html[data-platform="ios"][data-mobile="true"] .tab-glyph {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 26px;
-  border-radius: 13px;
+html[data-platform="ios"][data-mobile="true"] .mobile-tabs [data-mobile-tab="search"].on { background: color-mix(in srgb, var(--accent) 16%, var(--ios-glass)); }
+html[data-platform="ios"][data-mobile="true"] .tab-indicator {
+  display: block;
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 0;
+  border-radius: 27px;
+  background: var(--ios-fill);
+  transition: transform 380ms var(--ios-spring), width 300ms var(--ios-ease), opacity 160ms ease;
 }
+html[data-platform="ios"][data-mobile="true"] .tab-glyph { display: grid; place-items: center; width: 28px; height: 28px; }
 html[data-platform="ios"][data-mobile="true"] .tab-glyph svg {
-  width: 22px;
-  height: 22px;
+  width: 25px;
+  height: 25px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.7;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-html[data-platform="ios"][data-mobile="true"] body.mobile-editor .mobile-tabs { display: none; }
+html[data-platform="ios"][data-mobile="true"] .mobile-tabs [data-mobile-tab="search"] {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  flex: none;
+  width: 62px;
+  border-radius: 31px;
+  background: var(--ios-glass);
+  -webkit-backdrop-filter: var(--ios-blur);
+  backdrop-filter: var(--ios-blur);
+  box-shadow: var(--ios-glass-shadow), inset 0 0.5px 0 var(--ios-glass-edge);
+}
+html[data-platform="ios"][data-mobile="true"] .mobile-tabs [data-mobile-tab="search"] .tab-label { display: none; }
+html[data-platform="ios"][data-mobile="true"] body.mobile-editor .mobile-tabs,
+html[data-platform="ios"][data-mobile="true"] .keyboard-open .mobile-tabs { display: none; }
+html[data-platform="ios"][data-mobile="true"].keyboard-open .mobile-tabs { display: none; }
 
-/* The top bar is only search and sync now; primary actions live at the
-   bottom of the screen. */
-html[data-platform="ios"][data-mobile="true"] .topbar > #toggle-sidebar,
-html[data-platform="ios"][data-mobile="true"] .topbar > #new-note,
-html[data-platform="ios"][data-mobile="true"] .topbar > #lock,
-html[data-platform="ios"][data-mobile="true"] .topbar > #open-settings { display: none !important; }
+/* ----------------------------------------------------------------- editor */
 
-/* Browse is a sheet from the bottom, not a drawer from the side. */
-html[data-platform="ios"][data-mobile="true"] .sidebar {
-  top: auto;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  width: auto;
-  max-height: min(78vh, 640px);
-  height: auto;
+html[data-platform="ios"][data-mobile="true"] .editor { display: none; flex-direction: column; background: var(--ios-page); }
+html[data-platform="ios"][data-mobile="true"] body.mobile-editor .editor { display: flex; animation: ios-push 340ms cubic-bezier(0.2, 0.85, 0.25, 1); }
+/* During the back swipe the list is already waiting underneath. */
+html[data-platform="ios"][data-mobile="true"] body.mobile-swiping .list { display: flex; }
+html[data-platform="ios"][data-mobile="true"] body.mobile-swiping .editor {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  animation: none;
+  box-shadow: -8px 0 28px rgba(0, 0, 0, 0.16);
+}
+html[data-platform="ios"][data-mobile="true"] body.mobile-swiping .topbar { display: flex; }
+@keyframes ios-push {
+  from { transform: translateX(100%); }
+  to { transform: none; }
+}
+html[data-platform="ios"][data-mobile="true"][dir="rtl"] body.mobile-editor .editor { animation-name: ios-push-rtl; }
+@keyframes ios-push-rtl {
+  from { transform: translateX(-100%); }
+  to { transform: none; }
+}
+
+html[data-platform="ios"][data-mobile="true"] .editor-tools {
+  display: flex;
   flex: 0 0 auto;
-  border-radius: 22px 22px 0 0;
-  transform: translateY(105%);
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  box-shadow: 0 -22px 60px rgba(0, 0, 0, 0.25);
+  align-items: center;
+  order: 0;
+  height: calc(52px + var(--sat));
+  padding: var(--sat) 16px 0;
+  gap: 0;
+  border: 0;
+  background: transparent;
 }
-html[data-platform="ios"][data-mobile="true"] .sidebar.is-hidden {
+html[data-platform="ios"][data-mobile="true"] .editor-tools > :is(#export, #history, #focus) { display: none !important; }
+html[data-platform="ios"][data-mobile="true"] .mobile-back { display: grid; order: 0; }
+html[data-platform="ios"][data-mobile="true"] .editor-tools .spacer { order: 1; flex: 1; }
+html[data-platform="ios"][data-mobile="true"] .editor-tools #pin { order: 2; border-radius: 22px 0 0 22px; clip-path: inset(-30px 0 -30px -30px); }
+html[data-platform="ios"][data-mobile="true"] .editor-tools #star { order: 3; border-radius: 0; clip-path: inset(-30px 0); }
+html[data-platform="ios"][data-mobile="true"] .editor-tools #trash-note { order: 4; border-radius: 0; clip-path: inset(-30px 0); }
+html[data-platform="ios"][data-mobile="true"] .editor-tools #editor-menu { order: 5; border-radius: 0 22px 22px 0; clip-path: inset(-30px -30px -30px 0); }
+html[data-platform="ios"][data-mobile="true"][dir="rtl"] .editor-tools #pin { border-radius: 0 22px 22px 0; clip-path: inset(-30px -30px -30px 0); }
+html[data-platform="ios"][data-mobile="true"][dir="rtl"] .editor-tools #editor-menu { border-radius: 22px 0 0 22px; clip-path: inset(-30px 0 -30px -30px); }
+html[data-platform="ios"][data-mobile="true"] .editor-tools .icon.on { color: var(--accent); }
+
+html[data-platform="ios"][data-mobile="true"] .title {
+  order: 1;
+  flex: 0 0 auto;
+  padding: 10px 20px 2px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 34px;
+}
+/* The note's details read as a line under its title, not a second toolbar. */
+html[data-platform="ios"][data-mobile="true"] .editor-dock { display: contents; }
+html[data-platform="ios"][data-mobile="true"] .editor-foot {
+  order: 2;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px 6px;
+  border: 0;
+  background: transparent;
+  color: var(--ios-secondary);
+  font-size: 13px;
+}
+html[data-platform="ios"][data-mobile="true"] .editor-foot > :is(#print, #info) { display: none !important; }
+html[data-platform="ios"][data-mobile="true"] .editor-foot .notebook-chip { padding: 0; border: 0; background: none; color: var(--accent); font-size: 13px; }
+html[data-platform="ios"][data-mobile="true"] .editor-foot .notebook-chip svg { width: 15px; height: 15px; }
+html[data-platform="ios"][data-mobile="true"] .editor-foot .text-style {
+  width: 36px;
+  height: 28px;
+  border-radius: 14px;
+  background: var(--ios-fill);
+  color: var(--text);
+  font-size: 13px;
+}
+html[data-platform="ios"][data-mobile="true"] .body {
+  order: 3;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 6px 20px calc(86px + var(--sab));
+  font-size: calc(var(--editor-size, 15px) + 2px);
+  line-height: 1.4;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-user-select: text;
+  user-select: text;
+}
+html[data-platform="ios"][data-mobile="true"].keyboard-open .body { padding-bottom: 72px; }
+
+html[data-platform="ios"][data-mobile="true"] .editor-dock .format-bar,
+html[data-platform="ios"][data-mobile="true"] .format-bar {
+  position: absolute;
+  inset-inline: 16px;
   width: auto;
-  flex-basis: auto;
-  opacity: 0;
-  transform: translateY(105%);
-  pointer-events: none;
+  max-width: none;
+  bottom: var(--ios-tabbar-gap);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  height: 54px;
+  margin: 0;
+  padding: 0 10px;
+  gap: 2px;
+  border: 0;
+  border-radius: 27px;
+  overflow-x: auto;
+  background: var(--ios-glass);
+  -webkit-backdrop-filter: var(--ios-blur);
+  backdrop-filter: var(--ios-blur);
+  box-shadow: var(--ios-glass-shadow), inset 0 0.5px 0 var(--ios-glass-edge);
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
 }
-html[data-platform="ios"][data-mobile="true"] body.mobile-nav .sidebar,
-html[data-platform="ios"][data-mobile="true"] body.mobile-nav .sidebar.is-hidden {
-  width: auto;
-  flex-basis: auto;
-  opacity: 1;
-  visibility: visible;
-  transform: none;
-  pointer-events: auto;
+html[data-platform="ios"][data-mobile="true"].keyboard-open .format-bar { bottom: 8px; }
+html[data-platform="ios"][data-mobile="true"] .format-bar button {
+  flex: 0 0 auto;
+  min-width: 42px;
+  height: 42px;
+  padding: 0 8px;
+  border-radius: 21px;
+  background: transparent;
+  color: var(--text);
 }
-html[data-platform="ios"][data-mobile="true"] .sidebar::before {
+html[data-platform="ios"][data-mobile="true"] .format-bar button:hover { background: transparent; color: var(--text); }
+html[data-platform="ios"][data-mobile="true"] .format-bar button:active,
+html[data-platform="ios"][data-mobile="true"] .format-bar button.on { background: var(--ios-fill); color: var(--accent); }
+html[data-platform="ios"][data-mobile="true"] .format-bar svg { width: 21px; height: 21px; }
+
+/* ----------------------------------------------- pages instead of pop-ups */
+
+html[data-platform="ios"][data-mobile="true"] .modal { bottom: var(--keyboard-inset); z-index: 100; }
+
+/* Settings is a tab: a full page, under a tab bar that stays reachable. */
+html[data-platform="ios"][data-mobile="true"] #settings-modal {
+  position: fixed;
+  inset: 0;
+  bottom: var(--keyboard-inset);
+  z-index: 39;
+  display: block;
+  padding: 0;
+  background: var(--ios-bg);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  animation: none;
+}
+html[data-platform="ios"][data-mobile="true"] #settings-modal[hidden] { display: none !important; }
+/* The full-page screens that are not tabs cover everything. */
+html[data-platform="ios"][data-mobile="true"] :is(#tour, #export-modal, #history-modal, #first-sync, #lock-screen) {
+  display: block;
+  padding: 0;
+  background: var(--ios-bg);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+html[data-platform="ios"][data-mobile="true"] :is(#tour, #export-modal, #history-modal, #first-sync, #lock-screen)[hidden] { display: none !important; }
+html[data-platform="ios"][data-mobile="true"] #settings-modal .sheet.wide,
+html[data-platform="ios"][data-mobile="true"] :is(#tour, #export-modal, #history-modal, #first-sync, #lock-screen) > :is(.sheet, .decision-sheet) {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--ios-bg);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: none;
+  animation: none;
+}
+html[data-platform="ios"][data-mobile="true"] #settings-modal .sheet.wide { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+html[data-platform="ios"][data-mobile="true"] :is(#tour, #export-modal, #history-modal, #first-sync, #lock-screen) > :is(.sheet, .decision-sheet) {
+  padding: calc(var(--sat) + 16px) 20px calc(var(--sab) + 16px);
+  overflow-y: auto;
+}
+html[data-platform="ios"][data-mobile="true"] :is(#tour, #export-modal, #history-modal) > .sheet > h3:first-child,
+html[data-platform="ios"][data-mobile="true"] #first-sync h2 { font-size: 34px; font-weight: 700; line-height: 41px; }
+html[data-platform="ios"][data-mobile="true"] :is(#tour, #export-modal, #history-modal, #first-sync, #lock-screen) .modal-row :is(.primary, .ghost) {
+  flex: 1 1 auto;
+  height: 50px;
+  border-radius: 25px;
+  font-size: 17px;
+}
+
+html[data-platform="ios"][data-mobile="true"] .settings-nav {
+  position: absolute;
+  top: 0;
+  inset-inline: 0;
+  z-index: 3;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  height: calc(52px + var(--sat));
+  padding: var(--sat) 16px 0;
+}
+html[data-platform="ios"][data-mobile="true"] #settings-title {
+  flex: 1;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 600;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-inline-end: 44px;
+}
+html[data-platform="ios"][data-mobile="true"] .settings-nav::before {
   content: "";
   position: absolute;
-  top: 8px;
-  left: 50%;
-  width: 38px;
-  height: 5px;
-  border-radius: 3px;
-  background: var(--border);
-  transform: translateX(-50%);
-  z-index: 3;
+  inset: 0 0 -22px;
+  z-index: -1;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--ios-bg) 40%, transparent);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  -webkit-mask-image: linear-gradient(#000 55%, transparent);
+  mask-image: linear-gradient(#000 55%, transparent);
 }
-html[data-platform="ios"][data-mobile="true"] .sidebar .pane-head { padding-top: 20px; }
-html[data-platform="ios"][data-mobile="true"] .sidebar-scroll { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
-html[data-platform="ios"][data-mobile="true"] .mobile-scrim {
+/* At the top level the name is a large title with nothing beside it. */
+html[data-platform="ios"][data-mobile="true"] .at-root .settings-nav { height: calc(66px + var(--sat)); align-items: flex-end; padding-bottom: 8px; padding-inline: 20px; }
+html[data-platform="ios"][data-mobile="true"] .at-root #settings-title { padding: 0; font-size: 34px; font-weight: 700; line-height: 41px; text-align: start; letter-spacing: 0.01em; }
+html[data-platform="ios"][data-mobile="true"] .sheet.wide > .modal-row { display: none; }
+
+html[data-platform="ios"][data-mobile="true"] .settings-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  height: auto;
+  max-height: none;
+}
+html[data-platform="ios"][data-mobile="true"] .settings-tabs {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  width: auto;
+  margin: calc(72px + var(--sat)) 16px 0;
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 22px;
+  background: var(--ios-card);
+}
+html[data-platform="ios"][data-mobile="true"] .at-page .settings-tabs { display: none; }
+html[data-platform="ios"][data-mobile="true"] .at-root .settings-pages { display: none; }
+html[data-platform="ios"][data-mobile="true"] .settings-tabs button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  height: 54px;
+  padding: 0 34px 0 14px;
+  border: 0;
+  border-radius: 0;
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 400;
+  text-align: start;
+  white-space: nowrap;
+  background: no-repeat right 16px center / 8px 14px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 14'%3E%3Cpath d='m1 1 6 6-6 6' fill='none' stroke='%23a0a0a8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+html[data-platform="ios"][data-mobile="true"][dir="rtl"] .settings-tabs button {
+  padding: 0 14px 0 34px;
+  background-position: left 16px center;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 14'%3E%3Cpath d='m7 1-6 6 6 6' fill='none' stroke='%23a0a0a8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+html[data-platform="ios"][data-mobile="true"] .settings-tabs button:active { background-color: var(--ios-press); }
+html[data-platform="ios"][data-mobile="true"] .settings-tabs button.active { color: var(--text); background-color: transparent; }
+html[data-platform="ios"][data-mobile="true"] .settings-tabs button:active.active { background-color: var(--ios-press); }
+html[data-platform="ios"][data-mobile="true"] .settings-tabs button + button::after {
+  content: "";
+  position: absolute;
   top: 0;
-  bottom: 0;
-  z-index: 45;
+  inset-inline: 58px 0;
+  height: 0.5px;
+  background: var(--ios-separator);
+}
+/* Coloured tiles, as the system Settings app has. */
+html[data-platform="ios"][data-mobile="true"] .settings-tabs button::before {
+  content: "";
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  background: var(--tile) center / 20px 20px no-repeat var(--glyph);
+}
+html[data-platform="ios"][data-mobile="true"] .settings-tabs [data-tab="sync"] { --tile: #007aff; --glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 11a8 8 0 0 0-13.7-5.6L4 7.6M4 4v3.6h3.6M4 13a8 8 0 0 0 13.7 5.6l2.3-2.2M20 20v-3.6h-3.6'/%3E%3C/svg%3E"); }
+html[data-platform="ios"][data-mobile="true"] .settings-tabs [data-tab="themes"] { --tile: #af52de; --glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='8.5'/%3E%3Cpath d='M12 3.5v17a8.5 8.5 0 0 0 0-17z' fill='white'/%3E%3C/svg%3E"); }
+html[data-platform="ios"][data-mobile="true"] .settings-tabs [data-tab="general"] { --tile: #8e8e93; --glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M4 7h9M18 7h2M4 17h2M11 17h9'/%3E%3Ccircle cx='15.5' cy='7' r='2.5'/%3E%3Ccircle cx='8.5' cy='17' r='2.5'/%3E%3C/svg%3E"); }
+html[data-platform="ios"][data-mobile="true"] .settings-tabs [data-tab="editor"] { --tile: #ff9500; --glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20h4.2L19 9.2a2.5 2.5 0 0 0-3.5-3.5L4.7 16.5z'/%3E%3C/svg%3E"); }
+html[data-platform="ios"][data-mobile="true"] .settings-tabs [data-tab="about"] { --tile: #34c759; --glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='M12 11v7M12 6.5h.01'/%3E%3C/svg%3E"); }
+
+html[data-platform="ios"][data-mobile="true"] .settings-pages {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: calc(60px + var(--sat)) 16px calc(104px + var(--sab));
+  overflow-y: auto;
+  background: transparent;
+}
+html[data-platform="ios"][data-mobile="true"] .settings-pages section > h3:first-child { display: none; }
+html[data-platform="ios"][data-mobile="true"] .settings-pages .hint {
+  margin: 8px 16px 0;
+  color: var(--ios-secondary);
+  font-size: 13px;
+  line-height: 18px;
+}
+html[data-platform="ios"][data-mobile="true"] .settings-pages > section > .hint:first-of-type { margin-bottom: 14px; }
+html[data-platform="ios"][data-mobile="true"] .settings-pages h4 {
+  margin: 26px 16px 7px;
+  color: var(--ios-secondary);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+}
+html[data-platform="ios"][data-mobile="true"] .settings-group { margin-top: 10px; overflow: hidden; border-radius: 22px; background: var(--ios-card); }
+html[data-platform="ios"][data-mobile="true"] .settings-group > * {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 52px;
+  margin: 0;
+  padding: 8px 16px;
+  color: var(--text);
+  font-size: 17px;
+}
+html[data-platform="ios"][data-mobile="true"] .settings-group > * + *::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  inset-inline: 16px 0;
+  height: 0.5px;
+  background: var(--ios-separator);
+}
+/* A field reads as a caption above borderless text. */
+html[data-platform="ios"][data-mobile="true"] .settings-group > label:has(> input:not([type="checkbox"])) {
+  display: block;
+  color: var(--ios-secondary);
+  font-size: 13px;
+}
+html[data-platform="ios"][data-mobile="true"] .settings-group > label > input:not([type="checkbox"]) {
+  display: block;
+  width: 100%;
+  height: 28px;
+  margin: 2px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text);
+  font-size: 17px;
+}
+html[data-platform="ios"][data-mobile="true"] .settings-group select {
+  flex: 0 1 auto;
+  width: auto;
+  max-width: 58%;
+  height: 34px;
+  margin: 0;
+  padding: 0 20px 0 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  -webkit-appearance: none;
+  appearance: none;
+  color: var(--ios-secondary);
+  font-size: 17px;
+  text-align: end;
+  text-align-last: end;
+  background: no-repeat right 0 center / 10px 16px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 16'%3E%3Cpath d='m1 6 4-4 4 4M1 10l4 4 4-4' fill='none' stroke='%23a0a0a8' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+html[data-platform="ios"][data-mobile="true"][dir="rtl"] .settings-group select { padding: 0 0 0 20px; background-position: left 0 center; }
+html[data-platform="ios"][data-mobile="true"] .option-row span { flex: 1 1 auto; min-width: 0; }
+html[data-platform="ios"][data-mobile="true"] .settings-group > div > .check { flex: 1; justify-content: space-between; margin: 0; color: inherit; font-size: inherit; }
+html[data-platform="ios"][data-mobile="true"] .option-row .size-slider { display: flex; flex: 2 1 0; align-items: center; gap: 10px; margin: 0; }
+html[data-platform="ios"][data-mobile="true"] .option-row .size-slider input { flex: 1; min-width: 0; margin: 0; }
+html[data-platform="ios"][data-mobile="true"] .option-row .size-slider span { flex: 0 0 auto; }
+/* A phone has no keyboard shortcuts to list. */
+html[data-platform="ios"][data-mobile="true"] [data-page="about"] h4,
+html[data-platform="ios"][data-mobile="true"] .keys { display: none; }
+
+/* Checkboxes are switches on a phone. */
+html[data-platform="ios"][data-mobile="true"] .check input[type="checkbox"] {
+  order: 2;
+  position: relative;
+  flex: 0 0 51px;
+  width: 51px;
+  height: 31px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 16px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: color-mix(in srgb, #787880 24%, transparent);
+  box-shadow: none;
+  transition: background-color 200ms ease;
+}
+html[data-platform="ios"][data-mobile="true"] .check input[type="checkbox"]::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  inset-inline-start: 2px;
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22);
+  transition: inset-inline-start 200ms cubic-bezier(0.3, 0.9, 0.3, 1);
+}
+html[data-platform="ios"][data-mobile="true"] .check input[type="checkbox"]:checked { background: #34c759; }
+html[data-platform="ios"][data-mobile="true"] .check input[type="checkbox"]:checked::before { inset-inline-start: 22px; }
+html[data-platform="ios"][data-mobile="true"] .check input[type="checkbox"]::after { content: none; }
+
+html[data-platform="ios"][data-mobile="true"] .settings-pages .modal-row { flex-wrap: wrap; gap: 8px; margin: 14px 0 0; padding: 0; }
+html[data-platform="ios"][data-mobile="true"] .settings-pages .modal-row .spacer { display: none; }
+html[data-platform="ios"][data-mobile="true"] .settings-pages .modal-row :is(.primary, .ghost),
+html[data-platform="ios"][data-mobile="true"] .sync-actions #s-connect,
+html[data-platform="ios"][data-mobile="true"] .sync-actions #s-save {
+  flex: 1 1 auto;
+  height: 50px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 25px;
+  box-shadow: none;
+  font-size: 17px;
+  font-weight: 500;
+}
+html[data-platform="ios"][data-mobile="true"] .settings-pages .modal-row .ghost,
+html[data-platform="ios"][data-mobile="true"] .sync-actions #s-save { background: var(--ios-fill); color: var(--accent); }
+html[data-platform="ios"][data-mobile="true"] .settings-pages .modal-row .ghost.danger { color: var(--danger); }
+html[data-platform="ios"][data-mobile="true"] #s-connected { flex-basis: 100%; margin: 4px 16px 0; white-space: normal; overflow-wrap: anywhere; }
+
+/* Notebook names edit in place, in rows like the others. */
+html[data-platform="ios"][data-mobile="true"] #g-notebooks { overflow: hidden; border-radius: 22px; background: var(--ios-card); }
+html[data-platform="ios"][data-mobile="true"] .nb-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  margin: 0;
+  padding-block: 4px;
+  padding-inline: 16px 8px;
+}
+html[data-platform="ios"][data-mobile="true"] .nb-row + .nb-row::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  inset-inline: 16px 0;
+  height: 0.5px;
+  background: var(--ios-separator);
+}
+html[data-platform="ios"][data-mobile="true"] .nb-row input {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text);
+  font-size: 17px;
+}
+html[data-platform="ios"][data-mobile="true"] .nb-row .ghost { height: 40px; padding: 0 10px; font-size: 15px; }
+html[data-platform="ios"][data-mobile="true"] .accent-row { margin: 4px 0 14px; }
+html[data-platform="ios"][data-mobile="true"] .theme-row { margin-top: 8px; }
+html[data-platform="ios"][data-mobile="true"] .settings-pages .primary { background: var(--accent); background-image: none; }
+
+/* The segmented control. */
+html[data-platform="ios"][data-mobile="true"] .segmented { display: flex; width: 100%; gap: 0; margin: 4px 0 14px; padding: 2px; border-radius: 12px; background: var(--ios-fill); }
+html[data-platform="ios"][data-mobile="true"] .segmented button {
+  flex: 1;
+  height: 34px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+}
+html[data-platform="ios"][data-mobile="true"] .segmented button.active {
+  background: var(--ios-card);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: 0 2px 7px rgba(0, 0, 0, 0.14);
 }
 
-/* Context menus become native-style actions sheets. */
-.menu-sheet {
-  position: fixed;
-  left: 8px;
-  right: 8px;
-  top: auto;
-  bottom: calc(8px + env(safe-area-inset-bottom));
-  max-height: 70vh;
-  overflow-y: auto;
-  z-index: 90;
-  border-radius: 20px;
-  animation: mobile-sheet-in 220ms var(--ease);
+/* The lock screen is a page too, with its few controls in the middle. */
+html[data-platform="ios"][data-mobile="true"] #lock-screen > .sheet {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
 }
-.menu-scrim {
+html[data-platform="ios"][data-mobile="true"] #lock-screen h3 { margin: 0 0 8px; color: var(--text); font-size: 28px; font-weight: 700; }
+html[data-platform="ios"][data-mobile="true"] #lock-screen .hint { color: var(--ios-secondary); font-size: 15px; }
+html[data-platform="ios"][data-mobile="true"] #lock-screen input {
+  height: 50px;
+  margin-top: 20px;
+  border: 0;
+  border-radius: 25px;
+  background: var(--ios-fill);
+  box-shadow: none;
+  font-size: 17px;
+  text-align: center;
+}
+html[data-platform="ios"][data-mobile="true"] #lock-screen .modal-row .spacer { display: none; }
+
+/* In-note search sits under the bar rather than behind the status bar. */
+html[data-platform="ios"][data-mobile="true"] .find-bar {
+  top: calc(56px + var(--sat));
+  inset-inline: 16px;
+  min-height: 48px;
+  border: 0;
+  border-radius: 24px;
+  background: var(--ios-glass);
+  -webkit-backdrop-filter: var(--ios-blur);
+  backdrop-filter: var(--ios-blur);
+  box-shadow: var(--ios-glass-shadow), inset 0 0.5px 0 var(--ios-glass-edge);
+}
+html[data-platform="ios"][data-mobile="true"] .find-bar input { flex: 1; min-width: 0; }
+
+/* Messages clear the floating bars and the keyboard. */
+html[data-platform="ios"][data-mobile="true"] .toast {
+  bottom: calc(max(var(--sab), 10px) + 76px + var(--keyboard-inset));
+  z-index: 110;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  padding: 12px 18px;
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--ios-card) 60%, transparent);
+  -webkit-backdrop-filter: var(--ios-blur);
+  backdrop-filter: var(--ios-blur);
+  box-shadow: var(--ios-glass-shadow), inset 0 0.5px 0 var(--ios-glass-edge);
+  color: var(--text);
+  font-size: 15px;
+}
+
+/* Long-lived popovers share the glass, and stay on the screen. */
+html[data-platform="ios"][data-mobile="true"] .text-style-pop,
+html[data-platform="ios"][data-mobile="true"] .palette,
+html[data-platform="ios"][data-mobile="true"] .slash-menu {
+  max-width: calc(100vw - 24px);
+  border: 0;
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--ios-card) 62%, transparent);
+  -webkit-backdrop-filter: blur(54px) saturate(210%);
+  backdrop-filter: blur(54px) saturate(210%);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
+}
+html[data-platform="ios"][data-mobile="true"] .formula-sheet { width: min(calc(100vw - 24px), 460px); max-width: 100%; max-height: 80vh; overflow-y: auto; }
+
+/* ------------------------------------------------------ alerts and menus */
+
+/* Only short questions stay as overlays, and those are system-style alerts. */
+html[data-platform="ios"][data-mobile="true"] .modal.dialog { background: rgba(0, 0, 0, 0.26); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+html[data-platform="ios"][data-mobile="true"] .modal.dialog .sheet {
+  width: min(calc(100vw - 56px), 320px);
+  max-height: 80vh;
+  padding: 22px 20px 16px;
+  border: 0;
+  border-radius: 28px;
+  background: color-mix(in srgb, var(--ios-card) 62%, transparent);
+  -webkit-backdrop-filter: blur(54px) saturate(210%);
+  backdrop-filter: blur(54px) saturate(210%);
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.28);
+}
+html[data-platform="ios"][data-mobile="true"] .modal.dialog .sheet h3 { margin: 0 0 6px; color: var(--text); font-size: 17px; font-weight: 600; text-align: center; }
+html[data-platform="ios"][data-mobile="true"] .modal.dialog .sheet .hint { color: var(--text); font-size: 14px; line-height: 19px; text-align: center; }
+html[data-platform="ios"][data-mobile="true"] .modal.dialog .sheet input { height: 40px; border: 0; border-radius: 12px; background: var(--ios-fill); box-shadow: none; font-size: 16px; }
+html[data-platform="ios"][data-mobile="true"] .modal.dialog .modal-row { gap: 8px; margin-top: 16px; }
+html[data-platform="ios"][data-mobile="true"] .modal.dialog .modal-row .spacer { display: none; }
+html[data-platform="ios"][data-mobile="true"] .modal.dialog .modal-row :is(.primary, .ghost) {
+  flex: 1 1 0;
+  height: 44px;
+  border: 0;
+  border-radius: 22px;
+  box-shadow: none;
+  font-size: 17px;
+  font-weight: 500;
+}
+html[data-platform="ios"][data-mobile="true"] .modal.dialog .modal-row .ghost { background: var(--ios-fill); color: var(--text); }
+html[data-platform="ios"][data-mobile="true"] .modal.dialog .modal-row .primary { background: var(--accent); color: #fff; }
+html[data-platform="ios"][data-mobile="true"] .modal.dialog .modal-row .primary.danger { background: var(--ios-fill); color: var(--danger); font-weight: 600; }
+
+html[data-platform="ios"][data-mobile="true"] .menu-scrim {
   position: fixed;
   inset: 0;
   z-index: 89;
-  background: rgba(10, 14, 20, 0.28);
-  animation: mobile-fade-in 180ms ease-out;
+  background: rgba(0, 0, 0, 0.2);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  animation: ios-fade-in 220ms ease-out;
 }
-.menu-cancel {
+html[data-platform="ios"][data-mobile="true"] .context-menu.menu-sheet {
+  position: fixed;
+  inset-inline: 10px;
+  top: auto;
+  bottom: max(var(--sab), 10px);
+  width: auto;
+  max-height: 84vh;
+  padding: 6px 0 0;
+  overflow-y: auto;
+  z-index: 90;
+  border: 0;
+  border-radius: 30px;
+  background: color-mix(in srgb, var(--ios-card) 58%, transparent);
+  -webkit-backdrop-filter: blur(54px) saturate(210%);
+  backdrop-filter: blur(54px) saturate(210%);
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.28);
+  animation: ios-sheet-in 320ms cubic-bezier(0.2, 0.85, 0.25, 1);
+}
+html[data-platform="ios"][data-mobile="true"] .context-menu.menu-sheet button {
+  display: flex;
+  align-items: center;
+  gap: 14px;
   width: 100%;
+  min-height: 50px;
+  padding: 8px 20px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 17px;
+}
+html[data-platform="ios"][data-mobile="true"] .context-menu.menu-sheet button:active { background: var(--ios-fill); }
+html[data-platform="ios"][data-mobile="true"] .context-menu.menu-sheet button.danger { color: var(--danger); }
+html[data-platform="ios"][data-mobile="true"] .context-menu.menu-sheet .menu-icon { color: var(--accent); }
+html[data-platform="ios"][data-mobile="true"] .context-menu.menu-sheet button.danger .menu-icon { color: var(--danger); }
+html[data-platform="ios"][data-mobile="true"] .context-menu.menu-sheet .menu-hint { display: none; }
+html[data-platform="ios"][data-mobile="true"] .context-menu.menu-sheet .menu-sep { height: 6px; margin: 2px 0; background: var(--ios-fill); }
+html[data-platform="ios"][data-mobile="true"] .context-menu.menu-sheet .menu-cancel {
+  justify-content: center;
   margin-top: 6px;
-  padding: 12px;
-  border-top: 1px solid var(--border);
-  border-radius: 0 0 14px 14px;
-  color: var(--dim);
-  font-weight: 500;
+  border-top: 6px solid var(--ios-fill);
+  color: var(--accent);
+  font-weight: 600;
 }
-@keyframes mobile-sheet-in {
-  from { opacity: 0; transform: translateY(28px); }
-  to { opacity: 1; transform: none; }
+@keyframes ios-sheet-in {
+  from { transform: translateY(calc(100% + 20px)); }
+  to { transform: none; }
 }
-@keyframes mobile-fade-in {
+@keyframes ios-fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
-/* Browse is a destination, not a sheet: the tabs stay reachable. */
-html[data-platform="ios"][data-mobile="true"] { --mobile-tabs-h: 58px; }
-html[data-platform="ios"][data-mobile="true"] .sidebar {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  max-height: none;
-  display: none;
-  flex: 1 1 auto;
-  border-radius: 0;
-  transform: none;
-  opacity: 1;
-  visibility: visible;
-  pointer-events: auto;
-  box-shadow: none;
-  z-index: 1;
-}
-html[data-platform="ios"][data-mobile="true"] body.mobile-nav .sidebar,
-html[data-platform="ios"][data-mobile="true"] body.mobile-nav .sidebar.is-hidden {
-  display: flex;
-  width: 100%;
-  flex-basis: auto;
-  transform: none;
-  opacity: 1;
-  visibility: visible;
-  pointer-events: auto;
-  animation: mobile-view-in 180ms var(--ease);
-}
-html[data-platform="ios"][data-mobile="true"] .sidebar.is-hidden {
-  display: none;
-  width: 100%;
-  flex-basis: auto;
-  transform: none;
-  opacity: 1;
-}
-html[data-platform="ios"][data-mobile="true"] .sidebar::before { content: none; }
-html[data-platform="ios"][data-mobile="true"] .sidebar .pane-head { padding-top: 8px; }
-html[data-platform="ios"][data-mobile="true"] body.mobile-nav .list,
-html[data-platform="ios"][data-mobile="true"] body.mobile-nav .editor { display: none; }
-html[data-platform="ios"][data-mobile="true"] .mobile-scrim { display: none !important; }
-html[data-platform="ios"][data-mobile="true"] body.mobile-search .search-box {
-  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+/* ----------------------------------------------------------------- motion */
+
+/* The tab that just came on gives a small hop. */
+html[data-platform="ios"][data-mobile="true"] .mobile-tabs button.on .tab-glyph { animation: ios-hop 420ms var(--ios-spring); }
+html[data-platform="ios"][data-mobile="true"] .mobile-tabs button:active .tab-glyph { transform: scale(0.84); transition: transform 120ms ease; }
+@keyframes ios-hop {
+  0% { transform: scale(0.8); }
+  55% { transform: scale(1.14) translateY(-1px); }
+  100% { transform: none; }
 }
 
-/* New note is an action, not a destination: a compose button above the tabs. */
-html[data-platform="ios"][data-mobile="true"] .mobile-compose {
-  display: grid;
-  place-items: center;
-  position: fixed;
-  right: 16px;
-  bottom: calc(var(--mobile-tabs-h) + env(safe-area-inset-bottom) + 14px);
-  z-index: 38;
-  width: 52px;
-  height: 52px;
-  border: 0;
-  border-radius: 50%;
-  background: var(--accent);
-  color: #fff;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
-}
-html[data-platform="ios"][data-mobile="true"] .mobile-compose svg {
-  width: 24px;
-  height: 24px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-}
-html[data-platform="ios"][data-mobile="true"] body.mobile-editor @keyframes mobile-view-in {
-  from { opacity: 0; transform: translateX(12px); }
+/* Bars return to the screen when the editor closes. */
+html[data-platform="ios"][data-mobile="true"] body:not(.mobile-editor) .mobile-tabs { animation: ios-rise 420ms var(--ios-ease); }
+@keyframes ios-rise {
+  from { opacity: 0; transform: translateY(26px) scale(0.97); }
   to { opacity: 1; transform: none; }
 }
 
-/* iOS safe-area corrections; the complete phone design lives in this file.
-   here so they cannot affect Android. */
-
-html[data-platform="ios"] { -webkit-tap-highlight-color: transparent; }
-html[data-platform="ios"] .card { -webkit-touch-callout: none; }
-
-/* iOS: compact navigation bar and a translucent bottom tab bar. */
-html[data-platform="ios"] .topbar {
-  height: calc(44px + env(safe-area-inset-top));
-  padding-top: env(safe-area-inset-top);
-}
-html[data-platform="ios"] .topbar .search-box {
-  height: 32px;
-  border-radius: 10px;
-}
-html[data-platform="ios"] .mobile-tabs {
-  height: calc(49px + env(safe-area-inset-bottom));
-  padding-bottom: env(safe-area-inset-bottom);
-  background: color-mix(in srgb, var(--editor) 80%, transparent);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  backdrop-filter: blur(24px) saturate(180%);
-  border-top: 0.5px solid color-mix(in srgb, var(--border) 75%, transparent);
-  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.35) inset;
-}
-html[data-platform="ios"] .mobile-tabs button {
-  gap: 2px;
-  font-size: 10px;
-  font-weight: 500;
-}
-html[data-platform="ios"] .tab-glyph { width: 30px; height: 25px; }
-html[data-platform="ios"] .tab-glyph svg { width: 24px; height: 24px; }
-html[data-platform="ios"] .sidebar {
-  background: color-mix(in srgb, var(--editor) 94%, transparent);
-  -webkit-backdrop-filter: blur(30px) saturate(180%);
-  backdrop-filter: blur(30px) saturate(180%);
-}
-html[data-platform="ios"] .context-menu.menu-sheet { border-radius: 20px; }
-
-html[data-platform="ios"][data-mobile="true"] { --mobile-tabs-h: 49px; }
-html[data-platform="ios"] .mobile-compose {
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
-}
-html[data-platform="ios"] .sidebar {
-  background: var(--editor);
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
+/* A screen a tab reveals: its rows arrive one after another. */
+html[data-platform="ios"][data-mobile="true"] .list.view-enter .list-head,
+html[data-platform="ios"][data-mobile="true"] .sidebar.view-enter .pane-head { animation: ios-settle 360ms var(--ios-ease) both; }
+html[data-platform="ios"][data-mobile="true"] .list.view-enter .card { animation: ios-settle 420ms var(--ios-ease) both; }
+html[data-platform="ios"][data-mobile="true"] .list.view-enter .card:nth-child(2) { animation-delay: 30ms; }
+html[data-platform="ios"][data-mobile="true"] .list.view-enter .card:nth-child(3) { animation-delay: 60ms; }
+html[data-platform="ios"][data-mobile="true"] .list.view-enter .card:nth-child(4) { animation-delay: 90ms; }
+html[data-platform="ios"][data-mobile="true"] .list.view-enter .card:nth-child(5) { animation-delay: 120ms; }
+html[data-platform="ios"][data-mobile="true"] .list.view-enter .card:nth-child(6) { animation-delay: 150ms; }
+html[data-platform="ios"][data-mobile="true"] .list.view-enter .card:nth-child(7) { animation-delay: 180ms; }
+html[data-platform="ios"][data-mobile="true"] .list.view-enter .card:nth-child(n + 8) { animation-delay: 210ms; }
+html[data-platform="ios"][data-mobile="true"] .sidebar.view-enter .sidebar-scroll { animation: ios-settle 420ms var(--ios-ease) 40ms both; }
+@keyframes ios-settle {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
 }
 
-
-/* Modern floating iOS bar: a glass capsule with an integrated compose action. */
-html[data-platform="ios"][data-mobile="true"] { --mobile-tabs-h: 62px; }
-html[data-platform="ios"][data-mobile="true"] .mobile-tabs {
-  position: fixed;
-  left: 12px;
-  right: 12px;
-  bottom: calc(10px + env(safe-area-inset-bottom));
-  height: 62px;
-  padding: 0 5px;
-  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-  border-radius: 31px;
-  background: color-mix(in srgb, var(--editor) 72%, transparent);
-  -webkit-backdrop-filter: blur(28px) saturate(190%);
-  backdrop-filter: blur(28px) saturate(190%);
-  box-shadow:
-    0 14px 40px rgba(0, 0, 0, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.45);
-  z-index: 45;
-}
-html[data-platform="ios"][data-mobile="true"] .mobile-tabs button {
-  gap: 0;
-  border-radius: 26px;
-  font-size: 9px;
-}
-html[data-platform="ios"][data-mobile="true"] .mobile-tabs .tab-label { display: none; }
-html[data-platform="ios"][data-mobile="true"] .mobile-tabs .tab-glyph { width: 30px; height: 30px; }
-html[data-platform="ios"][data-mobile="true"] .mobile-tabs button.on .tab-glyph {
-  background: color-mix(in srgb, var(--accent) 13%, transparent);
-}
-html[data-platform="ios"][data-mobile="true"] .mobile-tabs .tab-compose { display: flex; }
-html[data-platform="ios"][data-mobile="true"] .mobile-tabs .tab-compose .tab-glyph {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: #fff;
-  box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 40%, transparent);
-}
-html[data-platform="ios"][data-mobile="true"] .mobile-tabs .tab-compose .tab-glyph svg {
-  width: 22px;
-  height: 22px;
-  stroke-width: 2.1;
-}
-html[data-platform="ios"][data-mobile="true"] .mobile-compose { display: none !important; }
-html[data-platform="ios"][data-mobile="true"] .list .cards,
-html[data-platform="ios"][data-mobile="true"] .sidebar-scroll {
-  padding-bottom: calc(100px + env(safe-area-inset-bottom));
-}
-
-
-/* Final iOS bar: floating material capsule, icon + label on every item. */
-html[data-platform="ios"][data-mobile="true"] { --mobile-tabs-h: 64px; }
-html[data-platform="ios"][data-mobile="true"] .mobile-tabs {
-  height: 64px;
-  padding-bottom: 0;
-  border-radius: 32px;
-  border-color: color-mix(in srgb, var(--border) 55%, transparent);
-  background: color-mix(in srgb, var(--editor) 66%, transparent);
-  box-shadow:
-    0 12px 36px rgba(0, 0, 0, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.42);
-}
-html[data-platform="ios"][data-mobile="true"] .mobile-tabs button {
-  gap: 2px;
-  border-radius: 26px;
-  font-size: 10px;
-}
-html[data-platform="ios"][data-mobile="true"] .mobile-tabs .tab-label { display: block; }
-html[data-platform="ios"][data-mobile="true"] .mobile-tabs .tab-glyph { width: 28px; height: 26px; }
-html[data-platform="ios"][data-mobile="true"] .mobile-tabs .tab-glyph svg { width: 22px; height: 22px; }
-html[data-platform="ios"][data-mobile="true"] .mobile-tabs button.on .tab-glyph {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-}
-html[data-platform="ios"][data-mobile="true"] .mobile-compose {
-  display: grid !important;
-  right: 18px;
-  bottom: calc(64px + env(safe-area-inset-bottom) + 28px);
-  width: 54px;
-  height: 54px;
-  border-radius: 50%;
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.22);
-}
-html[data-platform="ios"][data-mobile="true"] .list .cards,
-html[data-platform="ios"][data-mobile="true"] .sidebar-scroll {
-  padding-bottom: calc(112px + env(safe-area-inset-bottom));
-}
-
-/* Final iOS chrome: compact navigation bar and native search field. */
-html[data-platform="ios"][data-mobile="true"] .topbar {
-  height: calc(44px + env(safe-area-inset-top));
-  padding: env(safe-area-inset-top) 10px 0;
-}
-html[data-platform="ios"][data-mobile="true"] .topbar .search-box {
-  height: 32px;
-  border-radius: 10px;
-}
-
-
-/* Liquid-glass iOS chrome: a floating control bar above the content. */
-html[data-platform="ios"][data-mobile="true"] .topbar {
-  position: relative;
-  height: 52px;
-  margin: calc(8px + env(safe-area-inset-top)) 10px 4px;
-  padding: 0 7px;
-  gap: 5px;
-  border: 1px solid color-mix(in srgb, #fff 58%, transparent);
-  border-radius: 26px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--editor) 70%, transparent), color-mix(in srgb, var(--editor) 54%, transparent));
-  -webkit-backdrop-filter: blur(30px) saturate(190%);
-  backdrop-filter: blur(30px) saturate(190%);
-  box-shadow:
-    0 10px 28px rgba(0, 0, 0, 0.16),
-    inset 0 1px 0 rgba(255, 255, 255, 0.68),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.18);
-  z-index: 42;
-}
-html[data-platform="ios"][data-mobile="true"] .topbar::before {
-  content: "";
+/* The editor slides back out, with the list drifting in beneath it. */
+html[data-platform="ios"][data-mobile="true"] body.editor-leaving .editor {
   position: absolute;
-  inset: 1px;
-  border-radius: inherit;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.28), transparent 42%);
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  animation: ios-pop 300ms var(--ios-ease) forwards;
+  box-shadow: -8px 0 28px rgba(0, 0, 0, 0.16);
+}
+html[data-platform="ios"][data-mobile="true"] body.editor-leaving .list { animation: ios-drift 300ms var(--ios-ease); }
+html[data-platform="ios"][data-mobile="true"] body.editor-leaving .topbar { animation: ios-fade-in 300ms ease; }
+html[data-platform="ios"][data-mobile="true"][dir="rtl"] body.editor-leaving .editor { animation-name: ios-pop-rtl; }
+@keyframes ios-pop { to { transform: translateX(100%); } }
+@keyframes ios-pop-rtl { to { transform: translateX(-100%); } }
+@keyframes ios-drift {
+  from { opacity: 0.6; transform: translateX(-28px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Settings pushes a page and pops back to its list. */
+html[data-platform="ios"][data-mobile="true"] .at-page .settings-pages { animation: ios-page-push 340ms var(--ios-ease); }
+html[data-platform="ios"][data-mobile="true"] .at-root .settings-tabs { animation: ios-page-pop 340ms var(--ios-ease); }
+html[data-platform="ios"][data-mobile="true"] .view-enter .settings-tabs { animation: ios-settle 380ms var(--ios-ease); }
+@keyframes ios-page-push {
+  from { opacity: 0; transform: translateX(44px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes ios-page-pop {
+  from { opacity: 0; transform: translateX(-44px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* The format bar rises with the editor; alerts spring in; sheets leave too. */
+html[data-platform="ios"][data-mobile="true"] body.mobile-editor .format-bar { animation: ios-rise 460ms var(--ios-ease) 80ms both; }
+html[data-platform="ios"][data-mobile="true"] .modal.dialog .sheet { animation: ios-alert 300ms var(--ios-spring); }
+@keyframes ios-alert {
+  from { opacity: 0; transform: scale(1.12); }
+  to { opacity: 1; transform: none; }
+}
+html[data-platform="ios"][data-mobile="true"] .context-menu.menu-sheet.is-leaving {
   pointer-events: none;
-  z-index: 0;
+  animation: ios-sheet-out 220ms ease-in forwards;
 }
-html[data-platform="ios"][data-mobile="true"] .topbar > * { position: relative; z-index: 1; }
-html[data-platform="ios"][data-mobile="true"] .topbar .search-box {
-  height: 38px;
-  border: 1px solid color-mix(in srgb, #fff 42%, transparent);
-  border-radius: 19px;
-  background: color-mix(in srgb, var(--editor) 36%, transparent);
-  box-shadow:
-    inset 0 1px 2px rgba(0, 0, 0, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.40);
+html[data-platform="ios"][data-mobile="true"] .menu-scrim.is-leaving {
+  pointer-events: none;
+  animation: ios-fade-out 220ms ease forwards;
 }
-html[data-platform="ios"][data-mobile="true"] .topbar .search-box input { background: transparent; }
-html[data-platform="ios"][data-mobile="true"] .topbar .icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--editor) 32%, transparent);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
-}
-html[data-platform="ios"][data-mobile="true"] .topbar .mobile-top-action {
-  display: grid;
-  color: var(--accent);
-}
-html[data-platform="ios"][data-mobile="true"] .mobile-compose { display: none !important; }
-html[data-platform="ios"][data-mobile="true"] .list-head {
-  height: 58px;
-  padding: 0 16px;
-  background: transparent;
-}
-html[data-platform="ios"][data-mobile="true"] #list-title {
-  font-size: 27px;
-  font-weight: 700;
-  letter-spacing: -0.025em;
-}
-html[data-platform="ios"][data-mobile="true"] .list .cards,
-html[data-platform="ios"][data-mobile="true"] .sidebar-scroll {
-  padding-bottom: calc(98px + env(safe-area-inset-bottom));
-}
-html[data-platform="ios"][data-mobile="true"] .mobile-tabs button.on .tab-glyph {
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
+@keyframes ios-sheet-out { to { transform: translateY(calc(100% + 20px)); } }
+@keyframes ios-fade-out { to { opacity: 0; } }
+
+/* Presses and toggles. */
+html[data-platform="ios"][data-mobile="true"] .editor-tools .icon.on svg { animation: ios-hop 420ms var(--ios-spring); }
+html[data-platform="ios"][data-mobile="true"] .settings-pages .modal-row :is(.primary, .ghost),
+html[data-platform="ios"][data-mobile="true"] .format-bar button { transition: transform 140ms ease, background-color 140ms ease; }
+html[data-platform="ios"][data-mobile="true"] .settings-pages .modal-row :is(.primary, .ghost):active,
+html[data-platform="ios"][data-mobile="true"] .format-bar button:active { transform: scale(0.94); }
+
+html[data-platform="ios"][data-mobile="true"]edia (prefers-reduced-motion: reduce) {
+  html[data-platform="ios"][data-mobile="true"] *,
+  html[data-platform="ios"][data-mobile="true"] *::before,
+  html[data-platform="ios"][data-mobile="true"] *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 1ms !important;
+  }
 }
 
-html[data-platform="ios"][data-mobile="true"] .mobile-tabs button.on .tab-glyph {
-  background: transparent;
+/* Systems older than iOS 16.2 can't mix colours, so they get plain surfaces. */
+@supports not (color: color-mix(in srgb, red, blue)) {
+  html[data-platform="ios"][data-mobile="true"] {
+    --ios-bg: #f2f2f7;
+    --ios-secondary: #6e6e73;
+    --ios-tertiary: #aeaeb2;
+    --ios-separator: #d1d1d6;
+    --ios-fill: #e5e5ea;
+    --ios-press: #e5e5ea;
+    --ios-glass: rgba(255, 255, 255, 0.72);
+    --ios-glass-edge: rgba(255, 255, 255, 0.45);
+  }
+  html[data-platform="ios"][data-mobile="true"][data-theme="dark"] {
+    --ios-bg: #000;
+    --ios-card: #1c1c1e;
+    --ios-page: #1c1c1e;
+    --ios-secondary: #98989f;
+    --ios-tertiary: #636366;
+    --ios-separator: #38383a;
+    --ios-fill: #2c2c2e;
+    --ios-press: #2c2c2e;
+    --ios-glass: rgba(28, 28, 30, 0.72);
+  }
 }
-
-
-/* On phones the welcome tour talks about touch, not keyboard shortcuts. */
-html[data-platform="ios"][data-mobile="true"] .tour-desktop { display: none; }
-html[data-platform="ios"][data-mobile="true"] .tour-mobile { display: block; }
-
-
-/* Dialogs sit above the floating navigation and compose action. */
-html[data-platform="ios"][data-mobile="true"] .modal { z-index: 100; }
-
-/* The editor uses its own action row instead of a search bar. */
-html[data-platform="ios"][data-mobile="true"] body.mobile-editor .topbar { display: none; }
-html[data-platform="ios"][data-mobile="true"] body.mobile-editor .editor-tools {
-  height: calc(46px + env(safe-area-inset-top));
-  padding-top: env(safe-area-inset-top);
-}
-
-/* Neutral, theme-adaptive header: no tinted bar, only glass and a hairline. */
-html[data-platform="ios"][data-mobile="true"] body,
-html[data-platform="ios"][data-mobile="true"] .app,
-html[data-platform="ios"][data-mobile="true"] .panes,
-html[data-platform="ios"][data-mobile="true"] .list,
-html[data-platform="ios"][data-mobile="true"] .sidebar { background: var(--editor); }
-html[data-platform="ios"][data-mobile="true"] .topbar {
-  background: color-mix(in srgb, var(--editor) 6%, transparent);
-  border-color: color-mix(in srgb, var(--border) 55%, transparent);
-  box-shadow:
-    0 8px 24px rgba(0, 0, 0, 0.10),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35);
-}
-html[data-platform="ios"][data-mobile="true"] .topbar .search-box {
-  background: color-mix(in srgb, var(--editor) 22%, transparent);
-  border-color: color-mix(in srgb, var(--border) 60%, transparent);
-}
-html[data-platform="ios"][data-mobile="true"] .list .cards {
-  gap: 8px;
-  padding: 8px 12px calc(112px + env(safe-area-inset-bottom));
-}
-html[data-platform="ios"][data-mobile="true"] .list .card {
-  min-height: 0;
-  padding: 12px 14px;
-  border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
-  border-radius: 18px;
-  background: var(--editor);
-}
-html[data-platform="ios"][data-mobile="true"] .list .card.active {
-  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
-  background: var(--accent-soft);
-}
-html[data-platform="ios"][data-mobile="true"] .sidebar .row {
-  margin: 2px 0;
-  border-radius: 13px;
-}
-html[data-platform="ios"][data-mobile="true"] .list-head .icon,
-html[data-platform="ios"][data-mobile="true"] .editor-tools .icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-}
-html[data-platform="ios"][data-mobile="true"] .editor-dock { border-radius: 22px; }
-html[data-platform="ios"][data-mobile="true"] .modal .sheet:not(.wide) { border-radius: 24px; }
-html[data-platform="ios"][data-mobile="true"] .modal .sheet.wide {
-  border-radius: 24px !important;
-  overflow: hidden;
-}
-html[data-platform="ios"][data-mobile="true"] #settings-modal {
-  padding: calc(8px + env(safe-area-inset-top)) 8px calc(8px + env(safe-area-inset-bottom)) !important;
-}
-html[data-platform="ios"][data-mobile="true"] .settings-tabs {
-  padding-top: 12px;
-  border-radius: 24px 24px 0 0;
-}
-html[data-platform="ios"][data-mobile="true"] .settings-tabs button { border-radius: 11px; }
-html[data-platform="ios"][data-mobile="true"] .sheet input,
-html[data-platform="ios"][data-mobile="true"] .sheet select { border-radius: 14px; }
-html[data-platform="ios"][data-mobile="true"] .sheet .primary,
-html[data-platform="ios"][data-mobile="true"] .sheet .ghost { border-radius: 14px; }
-html[data-platform="ios"][data-mobile="true"] .sheet.wide > .modal-row { border-radius: 0 0 24px 24px; }

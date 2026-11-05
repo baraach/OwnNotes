@@ -31,5 +31,6 @@ appId: app.ownnotes.desktop
     text: "^Settings$"
 - assertVisible: "Sync & Storage"
 - takeScreenshot: mobile-settings
-- tapOn: "Close"
+- tapOn:
+    text: "^Notes$"
 - assertVisible: "All Notes"

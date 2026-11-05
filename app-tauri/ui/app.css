@@ -2852,6 +2852,8 @@ html[data-glass="on"] .sync-actions #s-save {
 .mobile-tabs,
 .mobile-compose,
 .mobile-top-action,
+.settings-nav,
+.tab-indicator,
 .mobile-only { display: none; }
 
 .tour-mobile { display: none; }

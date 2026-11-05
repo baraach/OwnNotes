@@ -37,18 +37,71 @@ function isMobile() {
 }
 
 function syncMobileTabs() {
-  const active = document.body.classList.contains("mobile-nav")
+  // Android searches from the bar above the list, so it has no Search tab.
+  // A closing page stays unhidden while it fades, but it has already been left.
+  const settings = $("settings-modal");
+  const active = !settings.hidden && !settings.classList.contains("is-closing")
+    ? "settings"
+    : document.body.classList.contains("mobile-nav")
     ? "browse"
-    : document.body.classList.contains("mobile-search")
+    : document.body.classList.contains("mobile-search") && PLATFORM !== "android"
       ? "search"
       : "notes";
   for (const tab of document.querySelectorAll("[data-mobile-tab]")) {
     tab.classList.toggle("on", tab.dataset.mobileTab === active);
   }
+  moveTabIndicator();
+  enterMobileView(active);
+}
+
+/** Slide the active-tab pill under whichever tab is on. */
+function moveTabIndicator() {
+  const pill = $("tab-indicator");
+  const tab = document.querySelector(".mobile-tabs button.on");
+  // A hidden bar measures as zero; the pill stays put until the bar is back.
+  if (!pill || !tab || !tab.offsetWidth) return;
+  // iOS shows Search as a circle of its own, which the pill can't reach.
+  const apart = getComputedStyle(tab).position === "absolute";
+  pill.style.opacity = apart ? "0" : "1";
+  if (apart) return;
+  pill.style.width = tab.offsetWidth + "px";
+  pill.style.transform = `translateX(${tab.offsetLeft}px)`;
+}
+
+let lastMobileTab = null;
+
+/** Replay the entrance of the screen a tab change just revealed. */
+function enterMobileView(active) {
+  const previous = lastMobileTab;
+  if (active === previous) return;
+  lastMobileTab = active;
+  if (PLATFORM !== "ios" && PLATFORM !== "android") return;
+  // Search filters the list in place, so nothing new has arrived.
+  if (active === "search" || previous === "search") return;
+  const pane = active === "browse" ? $("sidebar") : active === "settings" ? $("settings-modal") : $("list-pane");
+  pane.classList.remove("view-enter");
+  void pane.offsetWidth;
+  pane.classList.add("view-enter");
+  setTimeout(() => pane.classList.remove("view-enter"), 700);
+}
+
+let editorExitTimer = null;
+
+/** The editor is already closed; this only keeps it on screen while it slides out. */
+function playEditorExit() {
+  document.body.classList.add("editor-leaving");
+  clearTimeout(editorExitTimer);
+  editorExitTimer = setTimeout(() => document.body.classList.remove("editor-leaving"), 300);
 }
 
 function closeMobileEditor() {
-  if (isMobile()) document.body.classList.remove("mobile-editor");
+  if (isMobile()) {
+    const body = document.body;
+    const wasOpen = body.classList.contains("mobile-editor");
+    body.classList.remove("mobile-editor");
+    // A back swipe has already carried the editor off the screen.
+    if (wasOpen && !body.classList.contains("mobile-swiping")) playEditorExit();
+  }
   syncMobileTabs();
   syncMobileBack();
 }
@@ -58,6 +111,8 @@ function openMobileEditor() {
   if (!isMobile()) return;
   closeMobileNav();
   $("search").blur();
+  clearTimeout(editorExitTimer);
+  document.body.classList.remove("editor-leaving");
   document.body.classList.add("mobile-editor");
   syncMobileTabs();
   syncMobileBack();
@@ -134,12 +189,15 @@ function topMobilePopover() {
 function closeTopMobileLayer() {
   const popover = topMobilePopover();
   if (popover) {
-    popover.remove();
+    // Menus are built per use; the others stay in the page and open again.
+    if (popover.matches(".context-menu")) popover.remove();
+    else popover.hidden = true;
+    document.querySelector(".menu-scrim")?.remove();
     return true;
   }
   const modal = topMobileModal();
   if (modal) {
-    if (modal.id === "settings-modal") $("s-close")?.click();
+    if (modal.id === "settings-modal") (settingsAtRoot ? $("s-close") : $("settings-back"))?.click();
     else if (modal.id === "tour") $("tour-later")?.click();
     else if (modal.id === "export-modal") $("export-close")?.click();
     else if (modal.id === "history-modal") $("h-close")?.click();
@@ -155,13 +213,7 @@ function closeTopMobileLayer() {
     return true;
   }
   if (document.body.classList.contains("mobile-search")) {
-    document.body.classList.remove("mobile-search");
-    $("search").blur();
-    $("search").value = "";
-    state.search = "";
-    $("save-search").hidden = true;
-    renderCards();
-    syncMobileTabs();
+    leaveMobileSearch();
     return true;
   }
   if (document.body.classList.contains("mobile-editor")) {
@@ -169,6 +221,17 @@ function closeTopMobileLayer() {
     return true;
   }
   return false;
+}
+
+function leaveMobileSearch() {
+  document.body.classList.remove("mobile-search");
+  $("search").blur();
+  $("search").value = "";
+  state.search = "";
+  $("save-search").hidden = true;
+  renderCards();
+  syncMobileTabs();
+  syncMobileBack();
 }
 
 /** Android's back gesture closes the editor or drawer before leaving the app. */
@@ -209,7 +272,7 @@ async function syncMobileBack() {
   } finally {
     mobileBackBusy = false;
   }
-  if (!document.body.classList.contains("mobile-editor") && !document.body.classList.contains("mobile-nav") && !topMobileModal() && !topMobilePopover() && mobileBackUnlisten) {
+  if (!document.body.classList.contains("mobile-editor") && !document.body.classList.contains("mobile-nav") && !document.body.classList.contains("mobile-search") && !topMobileModal() && !topMobilePopover() && mobileBackUnlisten) {
     const off = mobileBackUnlisten;
     mobileBackUnlisten = null;
     try { off(); } catch {}
@@ -1478,6 +1541,8 @@ function setView(view) {
   closeMobileNav();
   closeMobileEditor();
   if (isMobile()) {
+    // On a phone the whole pane scrolls, and a new view starts at its top.
+    $("list-pane").scrollTop = 0;
     document.body.classList.remove("mobile-search");
     $("search").blur();
     syncMobileTabs();
@@ -1640,7 +1705,7 @@ $("editor-menu").addEventListener("click", (event) => {
         }
       },
     },
-    { label: "Spell check dictionary", icon: icon('<path d="M4 5h9l7 7-9 9-7-7z"/>'), run: () => { activeTab = "editor"; openSettings(); } },
+    { label: "Spell check dictionary", icon: icon('<path d="M4 5h9l7 7-9 9-7-7z"/>'), run: () => { activeTab = "editor"; settingsAtRoot = false; openSettings(); } },
     { separator: true },
     { label: "Text direction: left to right", icon: icon('<path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h13"/>'), run: () => applyDirection("ltr") },
     { label: "Text direction: right to left", icon: icon('<path d="M4 6h16"/><path d="M10 12h10"/><path d="M7 18h13"/>'), run: () => applyDirection("rtl") },
@@ -2191,6 +2256,8 @@ $("search-scope").addEventListener("click", () => {
 
 $("search").addEventListener("focus", () => {
   if (!isMobile()) return;
+  // Results appear in the note list, which Browse covers.
+  closeMobileNav();
   document.body.classList.add("mobile-search");
   syncMobileTabs();
   syncMobileBack();
@@ -2261,7 +2328,11 @@ $("mobile-scrim").addEventListener("click", closeMobileNav);
 for (const tab of document.querySelectorAll("[data-mobile-tab]")) {
   tab.addEventListener("click", () => {
     const name = tab.dataset.mobileTab;
+    // Settings is a tab like the others, so any tab leaves it.
+    if (!$("settings-modal").hidden) $("s-close").click();
     if (name === "notes") {
+      // Tapping the tab you are already on goes back to the top.
+      if (tab.classList.contains("on")) $("list-pane").scrollTo({ top: 0, behavior: "smooth" });
       closeMobileNav();
       closeMobileEditor();
       document.body.classList.remove("mobile-search");
@@ -2308,6 +2379,147 @@ $("mobile-new-note").addEventListener("click", () => {
   closeMobileEditor();
   $("new-note").click();
 });
+
+$("mobile-sort").addEventListener("click", () => $("sort").click());
+$("mobile-search-cancel").addEventListener("click", leaveMobileSearch);
+
+/** iOS shrinks only the visual viewport for the keyboard, so the app follows it. */
+function trackIosKeyboard() {
+  const viewport = window.visualViewport;
+  if (PLATFORM !== "ios" || !viewport) return;
+  const root = document.documentElement;
+  const update = () => {
+    const keyboard = Math.max(0, Math.round(window.innerHeight - viewport.height));
+    root.style.setProperty("--keyboard-inset", keyboard + "px");
+    root.classList.toggle("keyboard-open", keyboard > 80);
+    // WebKit scrolls the whole page to reveal a field; the panes scroll instead.
+    if (window.scrollY) window.scrollTo(0, 0);
+  };
+  viewport.addEventListener("resize", update);
+  viewport.addEventListener("scroll", update);
+}
+
+/** The iOS back swipe: the editor follows a finger from the leading edge. */
+function armIosSwipeBack() {
+  if (PLATFORM !== "ios") return;
+  const editor = $("editor-pane");
+  let start = null;
+  let moved = 0;
+  let tracking = false;
+  const settle = (done) => {
+    const width = editor.offsetWidth;
+    const rtl = document.documentElement.dir === "rtl";
+    editor.style.transition = "transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1)";
+    editor.style.transform = done ? `translateX(${rtl ? -width : width}px)` : "translateX(0)";
+    setTimeout(() => {
+      editor.style.transition = "";
+      editor.style.transform = "";
+      if (done) closeMobileEditor();
+      document.body.classList.remove("mobile-swiping");
+    }, 240);
+  };
+  editor.addEventListener("touchstart", (event) => {
+    start = null;
+    if (!document.body.classList.contains("mobile-editor") || event.touches.length !== 1) return;
+    const touch = event.touches[0];
+    const rtl = document.documentElement.dir === "rtl";
+    if ((rtl ? window.innerWidth - touch.clientX : touch.clientX) > 24) return;
+    start = { x: touch.clientX, y: touch.clientY, rtl };
+    moved = 0;
+    tracking = false;
+  }, { passive: true });
+  editor.addEventListener("touchmove", (event) => {
+    if (!start) return;
+    const touch = event.touches[0];
+    const across = (touch.clientX - start.x) * (start.rtl ? -1 : 1);
+    if (!tracking) {
+      if (Math.abs(touch.clientY - start.y) > 10 && Math.abs(touch.clientY - start.y) > across) {
+        start = null;
+        return;
+      }
+      if (across < 10) return;
+      tracking = true;
+      document.body.classList.add("mobile-swiping");
+    }
+    event.preventDefault();
+    moved = Math.max(0, across);
+    editor.style.transform = `translateX(${start.rtl ? -moved : moved}px)`;
+  }, { passive: false });
+  const finish = () => {
+    if (start && tracking) settle(moved > editor.offsetWidth * 0.33);
+    start = null;
+    tracking = false;
+  };
+  editor.addEventListener("touchend", finish);
+  editor.addEventListener("touchcancel", finish);
+}
+
+/** The Material touch ripple, spreading from where the finger landed. */
+function armAndroidRipple() {
+  if (PLATFORM !== "android") return;
+  const hosts = ".card, .row, .mobile-tabs button, .icon, .ghost, .primary, .mobile-compose, .context-menu button, .settings-tabs button, .format-bar button";
+  document.addEventListener("pointerdown", (event) => {
+    const host = event.target.closest?.(hosts);
+    if (!host) return;
+    const box = host.getBoundingClientRect();
+    const size = Math.max(box.width, box.height) * 2;
+    const ink = document.createElement("span");
+    ink.className = "ripple";
+    ink.style.width = ink.style.height = size + "px";
+    ink.style.left = event.clientX - box.left - size / 2 + "px";
+    ink.style.top = event.clientY - box.top - size / 2 + "px";
+    host.appendChild(ink);
+    ink.addEventListener("animationend", () => ink.remove());
+    // Hiding the host cancels the animation; left behind, it would replay on return.
+    ink.addEventListener("animationcancel", () => ink.remove());
+  }, { passive: true });
+}
+
+/** Keep Android's status-bar icons readable against the app's own theme. */
+function followAndroidTheme() {
+  const bridge = window.OwnNotesAndroid;
+  if (PLATFORM !== "android" || !bridge) return;
+  const root = document.documentElement;
+  const update = () => {
+    try { bridge.setLightBars(root.dataset.theme !== "dark"); } catch {}
+  };
+  new MutationObserver(update).observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+  update();
+}
+
+/** Keep what is being typed visible once the keyboard has shrunk the app. */
+function revealFocusedField() {
+  const field = document.activeElement;
+  if (!field) return;
+  const pages = field.closest?.(".settings-pages");
+  if (pages && field.matches("input, select, textarea")) {
+    const box = field.getBoundingClientRect();
+    const view = pages.getBoundingClientRect();
+    if (box.bottom > view.bottom - 24 || box.top < view.top + 80) {
+      pages.scrollTop += box.top - (view.top + view.height / 2);
+    }
+    return;
+  }
+  if (field.id !== "body") return;
+  const selection = window.getSelection();
+  if (!selection?.rangeCount) return;
+  const caret = selection.getRangeAt(0).getClientRects()[0];
+  if (!caret) return;
+  const limit = document.querySelector(".format-bar").getBoundingClientRect().top - 16;
+  if (caret.bottom > limit) field.scrollTop += caret.bottom - limit;
+}
+
+// Both fire when the bar comes back too, such as after the keyboard or a rotation.
+if (PLATFORM === "ios" || PLATFORM === "android") {
+  new ResizeObserver(moveTabIndicator).observe($("mobile-tabs"));
+  new ResizeObserver(() => requestAnimationFrame(revealFocusedField)).observe(document.querySelector(".app"));
+  // The tabs swap sides with the language; the pill has to follow them.
+  new MutationObserver(moveTabIndicator).observe(document.documentElement, { attributes: true, attributeFilter: ["dir"] });
+}
+trackIosKeyboard();
+armIosSwipeBack();
+armAndroidRipple();
+followAndroidTheme();
 
 // ------------------------------------------------------------ formatting
 
@@ -2418,6 +2630,7 @@ async function openSettings() {
 }
 
 function renderSettings() {
+  syncSettingsNav();
   for (const button of document.querySelectorAll(".settings-tabs button")) {
     button.classList.toggle("active", button.dataset.tab === activeTab);
     if (!button.dataset.en) button.dataset.en = button.textContent;
@@ -2521,17 +2734,85 @@ function renderSettings() {
   $("e-image").value = String(pref("image_size", 100));
   $("e-size-label").textContent = `${state.prefs.editor_font_size || 15}px`;
   if (typeof Editor !== "undefined") Editor.renderSettings();
+  // Some rows are only added once their setting is known.
+  groupSettingsRows();
 }
 
 let activeTab = "sync";
+// Phones open Settings on a list of its pages; a deep link clears this first.
+let settingsAtRoot = true;
 
 for (const button of document.querySelectorAll(".settings-tabs button")) {
   button.addEventListener("click", () => {
     activeTab = button.dataset.tab;
+    settingsAtRoot = false;
     renderSettings();
     document.querySelector(".settings-pages").scrollTop = 0;
+    syncMobileBack();
   });
 }
+
+$("settings-back").addEventListener("click", () => {
+  settingsAtRoot = true;
+  renderSettings();
+});
+
+/** The header of Settings on a phone: the list, or the page pushed over it. */
+function syncSettingsNav() {
+  const modal = $("settings-modal");
+  const native = PLATFORM === "ios" || PLATFORM === "android";
+  const atRoot = native && settingsAtRoot;
+  modal.classList.toggle("at-root", atRoot);
+  modal.classList.toggle("at-page", !atRoot);
+  $("settings-back").hidden = atRoot;
+  const tab = document.querySelector(`.settings-tabs button[data-tab="${activeTab}"]`);
+  $("settings-title").textContent = atRoot ? t("Settings") : tab?.textContent || t("Settings");
+  syncMobileTabs();
+}
+
+/** Runs of settings rows become one grouped list on a phone. */
+function groupSettingsRows() {
+  if (PLATFORM !== "ios" && PLATFORM !== "android") return;
+  for (const section of document.querySelectorAll(".settings-pages section")) {
+    let group = null;
+    for (const child of [...section.children]) {
+      if (child.isConnected && child.matches(".settings-group")) {
+        group = child;
+        continue;
+      }
+      // A caption above a control reads as one row with it.
+      const control = child.nextElementSibling;
+      if (child.matches("p.hint") && control?.matches("select, .size-slider")) {
+        const row = document.createElement("div");
+        row.className = "option-row";
+        const name = document.createElement("span");
+        name.append(...child.childNodes);
+        child.replaceWith(row);
+        row.append(name, control);
+        group = group || document.createElement("div");
+        if (!group.isConnected) {
+          group.className = "settings-group";
+          section.insertBefore(group, row);
+        }
+        group.appendChild(row);
+        continue;
+      }
+      // The editor adds its own switch inside a wrapper it keeps a reference to.
+      const isRow = child.matches("label, .check, .option-row") || child.querySelector(":scope > .check:only-child");
+      if (!child.isConnected || !isRow || child.matches(".desktop-only")) {
+        if (child.isConnected && child.parentElement === section) group = null;
+        continue;
+      }
+      if (!group) {
+        group = document.createElement("div");
+        group.className = "settings-group";
+        section.insertBefore(group, child);
+      }
+      group.appendChild(child);
+    }
+  }
+}
+groupSettingsRows();
 
 for (const button of document.querySelectorAll("#theme-mode button")) {
   button.addEventListener("click", () => {
@@ -2836,7 +3117,11 @@ async function savePrefs() {
 }
 
 $("open-settings").addEventListener("click", openSettings);
-$("s-close").addEventListener("click", () => ($("settings-modal").hidden = true));
+$("s-close").addEventListener("click", () => {
+  $("settings-modal").hidden = true;
+  settingsAtRoot = true;
+  syncMobileTabs();
+});
 
 // ----- sync settings
 //
@@ -3086,6 +3371,7 @@ $("sync-now").addEventListener("click", async () => {
   if (button.classList.contains("syncing")) return;
   if (!AutoSync.active) {
     activeTab = "sync";
+    settingsAtRoot = false;
     openSettings();
     return;
   }
@@ -3942,6 +4228,7 @@ $("tour-sync").addEventListener("click", () => {
   $("tour").hidden = true;
   setUiPref("onboarded", true);
   activeTab = "sync";
+  settingsAtRoot = false;
   openSettings();
 });
 
@@ -4537,6 +4824,8 @@ const modalHider = new MutationObserver((records) => {
         settledOverlays.delete(el);
         continue;
       }
+      // Setting hidden on an overlay that was never shown must not flash it.
+      if (record.oldValue !== null) continue;
       hideModalAfterFade(el);
     } else {
       if (reopeningOverlays.has(el)) {
@@ -4552,7 +4841,7 @@ const modalHider = new MutationObserver((records) => {
     }
   }
 });
-modalHider.observe(document.body, { attributes: true, attributeFilter: ["hidden"], subtree: true });
+modalHider.observe(document.body, { attributes: true, attributeOldValue: true, attributeFilter: ["hidden"], subtree: true });
 
 applyPlatformLabels();
 applyMobileMode();

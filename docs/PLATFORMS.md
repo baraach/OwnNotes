@@ -43,9 +43,29 @@ app-tauri/ui/
 There is deliberately no shared mobile stylesheet: the iOS and Android
 layouts and chrome are independent, so a change to one cannot restyle the
 other. Every phone rule is scoped with `data-mobile` and `data-platform`,
-so the desktop layout never matches it. The iOS build uses a floating
-liquid-glass header and tab bar; Android uses a solid Material top app bar,
-navigation bar and compose action.
+so the desktop layout never matches it.
+
+Each file follows its own platform's conventions rather than a shared phone
+layout. iOS has large titles, inset grouped lists, a floating glass tab bar
+with Search apart from it, switches and a back swipe from the leading edge.
+Android follows Material 3: a search bar at the top, a floating action button,
+modal bottom sheets, ripples and tonal colours mixed from the theme's accent,
+with a floating glass bottom bar and editor toolbar.
+
+On both, the note list and Browse scroll behind the blurred bars, and a pill
+slides under the active tab (`moveTabIndicator`). Each stylesheet ends with its
+own motion section, which `prefers-reduced-motion` turns off.
+
+Neither platform shows a screen as a pop-up. Settings is a tab that pushes one
+page at a time, and Export, History and the welcome screen are full pages. Only
+short questions (a system-style alert) and menus (an action or bottom sheet)
+stay as overlays.
+
+Android draws behind its system bars and does not resize the webview for the
+keyboard, so `MainActivity.kt` reports both to the page through
+`window.__applyAndroidInsets`. iOS follows `visualViewport` instead. Both end up
+in `--keyboard-inset`, which shrinks the app so that the editor toolbar stays
+above the keyboard.
 
 ## Tauri configuration
 

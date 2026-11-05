@@ -1,683 +1,1252 @@
-/* Phone and tablet layout. Everything here is scoped to html[data-mobile],
-   so desktop windows never match. Loaded after app.css and platform.css. */
+/* The complete Android phone and tablet design, following Material 3. It is
+   scoped to the Android platform attribute, so no other platform can match it.
+   The tonal surfaces are mixed from the app's theme tokens, the way dynamic
+   colour works, so accent colours and named looks keep working. */
 
-/* ------------------------------------------------------------ mobile */
+/* ---------------------------------------------------------------- tokens */
 
-
-/* A phone gets one pane at a time: the note list, or the editor. The
-   sidebar becomes a drawer. The desktop rules stay above this block and
-   are untouched because data-mobile is false there. */
-html[data-platform="android"][data-mobile="true"] .topbar {
-  height: calc(48px + env(safe-area-inset-top));
-  padding: env(safe-area-inset-top) 10px 0;
-  gap: 6px;
+html[data-platform="android"][data-mobile="true"] {
+  /* Reading the safe area also tells the webview to draw behind the system
+     bars; a page that never reads it gets a viewport cut short at the bottom. */
+  --sat: max(var(--android-top, 24px), env(safe-area-inset-top, 0px));
+  --sab: max(var(--android-bottom, 0px), env(safe-area-inset-bottom, 0px));
+  --keyboard-inset: 0px;
+  --m3-surface: color-mix(in srgb, var(--accent) 2%, var(--editor));
+  --m3-low: color-mix(in srgb, var(--accent) 5%, var(--editor));
+  --m3-container: color-mix(in srgb, var(--accent) 8%, var(--editor));
+  --m3-high: color-mix(in srgb, var(--accent) 11%, var(--editor));
+  --m3-primary-container: color-mix(in srgb, var(--accent) 20%, var(--editor));
+  --m3-on-primary-container: color-mix(in srgb, var(--accent) 70%, var(--text));
+  --m3-secondary-container: color-mix(in srgb, var(--accent) 16%, var(--editor));
+  --m3-variant: color-mix(in srgb, var(--text) 72%, var(--m3-surface));
+  --m3-outline: color-mix(in srgb, var(--text) 45%, var(--m3-surface));
+  --m3-outline-variant: color-mix(in srgb, var(--text) 16%, var(--m3-surface));
+  --m3-ink: color-mix(in srgb, var(--text) 12%, transparent);
+  --m3-standard: cubic-bezier(0.2, 0, 0, 1);
+  --m3-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --m3-blur: blur(36px) saturate(190%);
+  --m3-glass: color-mix(in srgb, var(--m3-surface) 56%, transparent);
+  --m3-bar-gap: calc(var(--sab) + 2px);
+  --m3-bar-space: calc(var(--sab) + 96px);
+  -webkit-tap-highlight-color: transparent;
 }
-html[data-platform="android"][data-mobile="true"] .topbar > :is(.traffic-space, .drag-layer, .drag-strip, .spacer),
-html[data-platform="android"][data-mobile="true"] .topbar > #undo,
-html[data-platform="android"][data-mobile="true"] .topbar > #redo,
-html[data-platform="android"][data-mobile="true"] .topbar > #sync-pill,
-html[data-platform="android"][data-mobile="true"] .topbar > #sticky { display: none; }
+html[data-platform="android"][data-mobile="true"][data-theme="dark"] {
+  --m3-surface: color-mix(in srgb, var(--accent) 3%, color-mix(in srgb, var(--editor) 55%, #000));
+  --m3-low: color-mix(in srgb, var(--accent) 5%, color-mix(in srgb, var(--editor) 75%, #000));
+  --m3-container: color-mix(in srgb, var(--accent) 7%, color-mix(in srgb, var(--editor) 85%, #000));
+  --m3-high: color-mix(in srgb, var(--accent) 9%, var(--editor));
+  --m3-primary-container: color-mix(in srgb, var(--accent) 35%, var(--editor));
+  --m3-on-primary-container: color-mix(in srgb, var(--accent) 25%, #fff);
+  --m3-secondary-container: color-mix(in srgb, var(--accent) 25%, var(--editor));
+}
+
+/* ------------------------------------------------------------- foundation */
+
+html[data-platform="android"][data-mobile="true"] body,
+html[data-platform="android"][data-mobile="true"] .app,
+html[data-platform="android"][data-mobile="true"] .panes {
+  background: var(--m3-surface);
+  font-family: Roboto, "Noto Sans", sans-serif;
+  letter-spacing: normal;
+  overscroll-behavior: none;
+}
+html[data-platform="android"][data-mobile="true"] .app { height: calc(100% - var(--keyboard-inset)); }
+html[data-platform="android"][data-mobile="true"] .topbar,
+html[data-platform="android"][data-mobile="true"] .list,
+html[data-platform="android"][data-mobile="true"] .sidebar,
+html[data-platform="android"][data-mobile="true"] .mobile-tabs,
+html[data-platform="android"][data-mobile="true"] .editor-tools,
+html[data-platform="android"][data-mobile="true"] .editor-foot,
+html[data-platform="android"][data-mobile="true"] .format-bar,
+html[data-platform="android"][data-mobile="true"] .settings-nav,
+html[data-platform="android"][data-mobile="true"] .settings-tabs,
+html[data-platform="android"][data-mobile="true"] .context-menu {
+  -webkit-user-select: none;
+  user-select: none;
+}
+html[data-platform="android"][data-mobile="true"] input,
+html[data-platform="android"][data-mobile="true"] textarea,
+html[data-platform="android"][data-mobile="true"] select { -webkit-user-select: text; user-select: text; font-size: 16px; }
+html[data-platform="android"][data-mobile="true"] .desktop-only,
+html[data-platform="android"][data-mobile="true"] .pane-grip,
+html[data-platform="android"][data-mobile="true"] .mobile-scrim,
+html[data-platform="android"][data-mobile="true"] .back-ios,
+html[data-platform="android"][data-mobile="true"] #info-panel { display: none !important; }
+html[data-platform="android"][data-mobile="true"] .mobile-only { display: block; }
+html[data-platform="android"][data-mobile="true"] .tour-desktop { display: none; }
+html[data-platform="android"][data-mobile="true"] .tour-mobile { display: block; }
+html[data-platform="android"][data-mobile="true"][dir="rtl"] .back-android { transform: scaleX(-1); }
+
+/* Touch feedback: the ripple spreads inside whatever it was started on. */
+html[data-platform="android"][data-mobile="true"] :is(.card, .row, .mobile-tabs button, .icon, .ghost, .primary, .context-menu button, .settings-tabs button, .format-bar button) {
+  position: relative;
+  overflow: hidden;
+}
+html[data-platform="android"][data-mobile="true"] .ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--m3-ink);
+  pointer-events: none;
+  transform: scale(0);
+  animation: m3-ripple 420ms var(--m3-standard) forwards;
+}
+@keyframes m3-ripple {
+  60% { opacity: 1; }
+  to { transform: scale(1); opacity: 0; }
+}
+
+/* Icon buttons: 48 to touch, with no fill of their own. */
+html[data-platform="android"][data-mobile="true"] .topbar .icon,
+html[data-platform="android"][data-mobile="true"] .editor-tools .icon,
+html[data-platform="android"][data-mobile="true"] #settings-back {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: none;
+  color: var(--m3-variant);
+}
+html[data-platform="android"][data-mobile="true"] .topbar .icon svg,
+html[data-platform="android"][data-mobile="true"] .editor-tools .icon svg,
+html[data-platform="android"][data-mobile="true"] #settings-back svg {
+  width: 24px;
+  height: 24px;
+  stroke-width: 1.8;
+}
+html[data-platform="android"][data-mobile="true"] .topbar .icon:hover,
+html[data-platform="android"][data-mobile="true"] .editor-tools .icon:hover,
+html[data-platform="android"][data-mobile="true"] #settings-back:hover { background: transparent; color: var(--m3-variant); }
+html[data-platform="android"][data-mobile="true"] .topbar .icon:active,
+html[data-platform="android"][data-mobile="true"] .editor-tools .icon:active,
+html[data-platform="android"][data-mobile="true"] #settings-back:active { transform: none; }
+
+/* ------------------------------------------------------------- search bar */
+
+/* The search bar is the top of the screen, as in Google's own apps. */
+html[data-platform="android"][data-mobile="true"] .app { position: relative; }
+/* The status bar area frosts whatever scrolls up behind it. */
+html[data-platform="android"][data-mobile="true"] .app::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: calc(var(--sat) + 26px);
+  z-index: 2;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--m3-surface) 50%, transparent);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  -webkit-mask-image: linear-gradient(#000 60%, transparent);
+  mask-image: linear-gradient(#000 60%, transparent);
+}
+html[data-platform="android"][data-mobile="true"] body.mobile-editor .app::before { display: none; }
+html[data-platform="android"][data-mobile="true"] .topbar {
+  position: absolute;
+  top: calc(var(--sat) + 8px);
+  inset-inline: 16px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  height: 56px;
+  margin: 0;
+  padding: 0 4px 0 16px;
+  gap: 0;
+  border: 0;
+  border-radius: 28px;
+  background: color-mix(in srgb, var(--m3-high) 60%, transparent);
+  -webkit-backdrop-filter: var(--m3-blur);
+  backdrop-filter: var(--m3-blur);
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.08);
+  -webkit-app-region: no-drag;
+}
+html[data-platform="android"][data-mobile="true"][dir="rtl"] .topbar { padding: 0 16px 0 4px; }
+html[data-platform="android"][data-mobile="true"] .topbar::before { content: none; }
+html[data-platform="android"][data-mobile="true"] .topbar > :is(.traffic-space, .drag-layer, .drag-strip, .spacer, #toggle-sidebar, #undo, #redo, #sync-pill, #new-note, #lock, #sticky, #open-settings, #mobile-new-note) { display: none !important; }
+html[data-platform="android"][data-mobile="true"] .topbar .mobile-top-action { display: grid; }
 html[data-platform="android"][data-mobile="true"] .topbar .search-box {
+  display: flex;
   flex: 1 1 auto;
+  align-items: center;
   width: auto;
   min-width: 0;
+  height: 100%;
+  padding: 0;
+  gap: 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
-html[data-platform="android"][data-mobile="true"] .topbar #new-note {
-  flex: 0 0 auto;
-  height: 32px;
-  padding: 0 12px;
-  font-size: 13px;
+html[data-platform="android"][data-mobile="true"] .topbar .search-box:focus-within { background: transparent; box-shadow: none; border: 0; }
+html[data-platform="android"][data-mobile="true"] .topbar .search-box svg { width: 24px; height: 24px; flex: 0 0 24px; color: var(--m3-variant); stroke-width: 1.8; }
+html[data-platform="android"][data-mobile="true"] .topbar .search-box input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text);
+  font-size: 16px;
 }
-html[data-platform="android"][data-mobile="true"] #lock,
-html[data-platform="android"][data-mobile="true"] #open-settings,
-html[data-platform="android"][data-mobile="true"] #sync-now { flex: 0 0 auto; }
+html[data-platform="android"][data-mobile="true"] .topbar .search-box input::placeholder { color: var(--m3-variant); }
+html[data-platform="android"][data-mobile="true"] .search-scope { display: none; }
+html[data-platform="android"][data-mobile="true"] body.mobile-search .search-scope:not([hidden]) { display: block; }
+html[data-platform="android"][data-mobile="true"] #mobile-search-cancel { display: none; }
+html[data-platform="android"][data-mobile="true"] #mobile-search-cancel span { display: none; }
+html[data-platform="android"][data-mobile="true"] body.mobile-search #mobile-search-cancel {
+  display: grid;
+  place-items: center;
+  order: -1;
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+  margin-inline-start: -12px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--text);
+}
+html[data-platform="android"][data-mobile="true"] #mobile-search-cancel svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+html[data-platform="android"][data-mobile="true"][dir="rtl"] #mobile-search-cancel svg { transform: scaleX(-1); }
+html[data-platform="android"][data-mobile="true"] body.mobile-search .topbar .search-box svg,
+html[data-platform="android"][data-mobile="true"] body.mobile-search .topbar > :is(#mobile-sort, #sync-now) { display: none; }
+html[data-platform="android"][data-mobile="true"] body.mobile-nav #mobile-sort { display: none; }
+html[data-platform="android"][data-mobile="true"] body.mobile-editor .topbar { display: none; }
+
+/* -------------------------------------------------------------- note list */
 
 html[data-platform="android"][data-mobile="true"] .panes {
   display: block;
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
   padding: 0;
   gap: 0;
+}
+html[data-platform="android"][data-mobile="true"] .panes > * + * { border: 0; }
+html[data-platform="android"][data-mobile="true"] .list,
+html[data-platform="android"][data-mobile="true"] .editor {
   position: relative;
+  width: 100%;
+  height: 100%;
+  flex: 1 1 auto;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 html[data-platform="android"][data-mobile="true"] .list {
   display: flex;
-  width: 100%;
-  height: 100%;
-  flex: 1 1 auto;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
+  flex-direction: column;
+  padding-top: calc(var(--sat) + 72px);
+  background: var(--m3-surface);
+  overflow-x: hidden;
+  overflow-y: auto;
 }
-html[data-platform="android"][data-mobile="true"] .editor {
-  display: none;
-  width: 100%;
-  height: 100%;
-  flex: 1 1 auto;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-}
-html[data-platform="android"][data-mobile="true"] body.mobile-editor .list { display: none; }
-html[data-platform="android"][data-mobile="true"] body.mobile-editor .editor { display: flex; }
+html[data-platform="android"][data-mobile="true"] body.mobile-editor .list,
+html[data-platform="android"][data-mobile="true"] body.mobile-nav .list,
+html[data-platform="android"][data-mobile="true"] body.mobile-nav .editor { display: none; }
 
-html[data-platform="android"][data-mobile="true"] .list-head,
-html[data-platform="android"][data-mobile="true"] .editor-tools {
-  height: 46px;
-  padding: 0 8px 0 14px;
-}
-html[data-platform="android"][data-mobile="true"] .cards { padding: 6px 10px calc(22px + env(safe-area-inset-bottom)); }
-html[data-platform="android"][data-mobile="true"] .card { min-height: 64px; padding: 13px 12px; }
-html[data-platform="android"][data-mobile="true"] .row { padding: 10px; font-size: 15px; }
-html[data-platform="android"][data-mobile="true"] .section-title { padding-top: 12px; padding-bottom: 6px; }
-
-/* Drawer */
-html[data-platform="android"][data-mobile="true"] .sidebar {
+html[data-platform="android"][data-mobile="true"] .list-head {
   display: flex;
-  position: fixed;
-  top: calc(48px + env(safe-area-inset-top));
-  bottom: 0;
-  left: 0;
-  width: min(86vw, 330px);
-  height: auto;
   flex: 0 0 auto;
-  padding: 0;
-  overflow: hidden;
-  z-index: 60;
-  border-radius: 0 18px 18px 0;
-  background: var(--sidebar);
-  box-shadow: 18px 0 50px rgba(0, 0, 0, 0.22);
-  transform: translateX(-102%);
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transition: transform 260ms var(--ease), opacity 180ms var(--ease), visibility 260ms;
+  align-items: baseline;
+  gap: 8px;
+  height: auto;
+  padding: 8px 24px 10px;
+  border: 0;
+  background: transparent;
 }
+html[data-platform="android"][data-mobile="true"] .list-head > :is(#sort, #new-note-2, .spacer) { display: none; }
+html[data-platform="android"][data-mobile="true"] #list-title {
+  margin: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 28px;
+  letter-spacing: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html[data-platform="android"][data-mobile="true"] #list-count { color: var(--m3-variant); font-size: 14px; }
+
+/* A connected list: small corners between items, large at the ends. */
+html[data-platform="android"][data-mobile="true"] .cards {
+  flex: 0 0 auto;
+  gap: 2px;
+  padding: 0 16px var(--m3-bar-space);
+  background: transparent;
+  overflow: visible;
+}
+html[data-platform="android"][data-mobile="true"] .card {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 72px;
+  margin: 0;
+  padding: 14px 16px;
+  border: 0;
+  border-radius: 4px;
+  background: var(--m3-low);
+  box-shadow: none;
+}
+html[data-platform="android"][data-mobile="true"] .card:first-child { border-top-left-radius: 24px; border-top-right-radius: 24px; }
+html[data-platform="android"][data-mobile="true"] .card:last-child { border-bottom-left-radius: 24px; border-bottom-right-radius: 24px; }
+html[data-platform="android"][data-mobile="true"] .card:hover,
+html[data-platform="android"][data-mobile="true"] .card.active { background: var(--m3-low); }
+html[data-platform="android"][data-mobile="true"] .card.picked { background: var(--m3-secondary-container); }
+html[data-platform="android"][data-mobile="true"] .card-text { display: flex; flex-direction: column; flex: 1; min-width: 0; gap: 2px; }
+html[data-platform="android"][data-mobile="true"] .card .top { display: flex; align-items: center; gap: 6px; }
+html[data-platform="android"][data-mobile="true"] .card .name { color: var(--text); font-size: 16px; font-weight: 500; line-height: 24px; }
+html[data-platform="android"][data-mobile="true"] .card .badge svg { width: 14px; height: 14px; }
+html[data-platform="android"][data-mobile="true"] .card .preview {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--m3-variant);
+  font-size: 14px;
+  line-height: 20px;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+html[data-platform="android"][data-mobile="true"] .card .meta { margin-top: 2px; color: var(--m3-variant); font-size: 12px; line-height: 16px; opacity: 1; }
+html[data-platform="android"][data-mobile="true"] .card .thumb { width: 56px; height: 56px; flex: 0 0 56px; border-radius: 12px; object-fit: cover; }
+
+/* ---------------------------------------------------------------- browse */
+
+/* Browse reads as a navigation drawer's contents: pill rows, no boxes. */
+html[data-platform="android"][data-mobile="true"] .sidebar,
 html[data-platform="android"][data-mobile="true"] .sidebar.is-hidden {
-  width: min(86vw, 330px);
-  flex-basis: auto;
-  opacity: 0;
-  transform: translateX(-102%);
-  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  flex: 1 1 auto;
+  padding: calc(var(--sat) + 72px) 0 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border: 0;
+  border-radius: 0;
+  background: var(--m3-surface);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: none;
+  opacity: 1;
+  transform: none;
+  z-index: 1;
 }
 html[data-platform="android"][data-mobile="true"] body.mobile-nav .sidebar,
-html[data-platform="android"][data-mobile="true"] body.mobile-nav .sidebar.is-hidden {
-  width: min(86vw, 330px);
-  flex-basis: auto;
-  opacity: 1;
-  visibility: visible;
-  transform: none;
-  pointer-events: auto;
-}
-html[data-platform="android"][data-mobile="true"] .sidebar-scroll {
-  padding: 8px 10px calc(24px + env(safe-area-inset-bottom));
-}
-html[data-platform="android"][data-mobile="true"] .mobile-scrim {
-  display: block;
-  position: fixed;
-  top: calc(48px + env(safe-area-inset-top));
-  right: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 55;
-  border: 0;
-  padding: 0;
-  background: rgba(15, 20, 28, 0.3);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 180ms var(--ease);
-}
-html[data-platform="android"][data-mobile="true"] body.mobile-nav .mobile-scrim {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-/* Editor */
-html[data-platform="android"][data-mobile="true"] .editor-tools { padding-left: 8px; gap: 2px; }
-html[data-platform="android"][data-mobile="true"] .mobile-back { display: grid; margin-inline-end: 4px; }
-html[data-platform="android"][data-mobile="true"] #export,
-html[data-platform="android"][data-mobile="true"] #history,
-html[data-platform="android"][data-mobile="true"] #focus,
-html[data-platform="android"][data-mobile="true"] #info,
-html[data-platform="android"][data-mobile="true"] #print { display: none !important; }
-html[data-platform="android"][data-mobile="true"] .title {
-  font-size: 26px;
-  padding: 2px 16px 0;
-}
-html[data-platform="android"][data-mobile="true"] .body {
-  padding: 6px 16px calc(116px + env(safe-area-inset-bottom));
-  font-size: 16px;
-  line-height: 1.55;
-  overscroll-behavior: contain;
-}
-html[data-platform="android"][data-mobile="true"] .editor-dock {
-  left: 8px;
-  right: 8px;
-  bottom: calc(8px + env(safe-area-inset-bottom));
-  border-radius: 16px;
-}
-html[data-platform="android"][data-mobile="true"] .editor-dock .format-bar {
-  padding: 5px 6px 0;
-}
-html[data-platform="android"][data-mobile="true"] .editor-foot {
-  padding: 2px 10px calc(6px + env(safe-area-inset-bottom));
-}
-html[data-platform="android"][data-mobile="true"] .icon { width: 34px; height: 34px; }
-
-/* Full-screen settings on a phone. */
-html[data-platform="android"][data-mobile="true"] .modal { padding: 12px; }
-html[data-platform="android"][data-mobile="true"] #settings-modal { padding: 0; align-items: stretch; justify-content: stretch; }
-html[data-platform="android"][data-mobile="true"] .modal .sheet.wide {
-  width: 100%;
-  height: 100%;
-  max-height: none;
-  margin: 0;
-  border-radius: 0;
-}
-html[data-platform="android"][data-mobile="true"] .settings-body {
-  flex-direction: column;
-  min-height: 0;
-  height: 100%;
-  max-height: none;
-}
-html[data-platform="android"][data-mobile="true"] .settings-tabs {
-  width: auto;
-  flex: 0 0 auto;
-  flex-direction: row;
-  overflow-x: auto;
-  padding: 8px;
-  border-right: 0;
-  border-bottom: 1px solid var(--border);
-  background: var(--editor);
-}
-html[data-platform="android"][data-mobile="true"] .settings-tabs button { white-space: nowrap; padding: 8px 10px; }
-html[data-platform="android"][data-mobile="true"] .settings-pages {
-  padding: 16px;
-  padding-bottom: calc(24px + env(safe-area-inset-bottom));
-}
-html[data-platform="android"][data-mobile="true"] .sheet.wide > .modal-row {
-  padding: 10px 16px calc(14px + env(safe-area-inset-bottom));
-  background: var(--editor);
-}
-html[data-platform="android"][data-mobile="true"] .modal .sheet:not(.wide) {
-  width: calc(100vw - 24px);
-  max-height: 86vh;
-}
-html[data-platform="android"][data-mobile="true"] input,
-html[data-platform="android"][data-mobile="true"] select,
-html[data-platform="android"][data-mobile="true"] textarea { font-size: 16px; }
-html[data-platform="android"][data-mobile="true"] body { overscroll-behavior: none; }
-
-html[data-platform="android"][data-mobile="true"] .pane-grip { display: none !important; }
-
-html[data-platform="android"][data-mobile="true"] .modal .sheet.wide { border-radius: 0 !important; }
-html[data-platform="android"][data-mobile="true"] .settings-tabs { padding-top: calc(8px + env(safe-area-inset-top)); }
-html[data-platform="android"][data-mobile="true"] .sync-actions { flex-wrap: wrap; }
-html[data-platform="android"][data-mobile="true"] #s-connected {
-  flex-basis: 100%;
-  margin-top: 6px;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-html[data-platform="android"][data-mobile="true"] .modal .sheet:not(.wide) {
-  margin-top: calc(12px + env(safe-area-inset-top));
-}
-
-/* Features that need a desktop file picker or window. */
-html[data-platform="android"][data-mobile="true"] .desktop-only { display: none !important; }
-
-/* ------------------------------------------------------ bottom navigation */
-
-
-html[data-platform="android"][data-mobile="true"] .mobile-only { display: block; }
-html[data-platform="android"][data-mobile="true"] .mobile-tabs {
+html[data-platform="android"][data-mobile="true"] body.mobile-nav .sidebar.is-hidden { display: flex; animation: m3-fade-through 240ms var(--m3-standard); }
+html[data-platform="android"][data-mobile="true"] .sidebar .pane-head {
   display: flex;
-  flex: 0 0 auto;
+  align-items: baseline;
+  justify-content: space-between;
+  height: auto;
+  padding: 8px 24px 10px;
+  border: 0;
+  background: transparent;
+}
+html[data-platform="android"][data-mobile="true"] .sidebar .pane-title { color: var(--text); font-size: 22px; font-weight: 400; line-height: 28px; letter-spacing: normal; }
+html[data-platform="android"][data-mobile="true"] .space-button { color: var(--accent); font-size: 14px; font-weight: 500; }
+html[data-platform="android"][data-mobile="true"] .sidebar-scroll { flex: 0 0 auto; overflow: visible; padding: 0 12px var(--m3-bar-space); }
+html[data-platform="android"][data-mobile="true"] .sidebar .nav { padding: 0; margin: 0; background: none; }
+html[data-platform="android"][data-mobile="true"] .sidebar .nav:empty { display: none; }
+html[data-platform="android"][data-mobile="true"] .sidebar .nav.mobile-only { display: block; }
+html[data-platform="android"][data-mobile="true"] .sidebar .section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 18px 16px 8px;
+  color: var(--m3-variant);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+}
+html[data-platform="android"][data-mobile="true"] .sidebar .section-title .tiny { margin-inline-start: auto; color: var(--m3-variant); font-size: 24px; font-weight: 300; background: none; }
+html[data-platform="android"][data-mobile="true"] .sidebar .row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 56px;
+  margin: 0;
+  padding: 8px 24px 8px 16px;
+  gap: 12px;
+  border-radius: 28px;
+  background: transparent;
+  color: var(--m3-variant);
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: none;
+}
+html[data-platform="android"][data-mobile="true"][dir="rtl"] .sidebar .row { padding: 8px 16px 8px 24px; }
+html[data-platform="android"][data-mobile="true"] .sidebar .row:hover { background: transparent; color: var(--m3-variant); }
+html[data-platform="android"][data-mobile="true"] .sidebar .row.active { background: var(--m3-secondary-container); color: var(--text); }
+html[data-platform="android"][data-mobile="true"] .sidebar .row .glyph { width: 24px; height: 24px; flex: 0 0 24px; color: inherit; }
+html[data-platform="android"][data-mobile="true"] .sidebar .row .glyph svg { width: 24px; height: 24px; stroke-width: 1.7; }
+html[data-platform="android"][data-mobile="true"] .sidebar .row.active .glyph { color: inherit; }
+html[data-platform="android"][data-mobile="true"] .sidebar .row .label { flex: 1 1 auto; }
+html[data-platform="android"][data-mobile="true"] .sidebar .row .count { margin: 0; color: inherit; font-size: 12px; }
+html[data-platform="android"][data-mobile="true"] .sidebar #nav .row { padding-inline-start: 16px !important; }
+
+/* ------------------------------------------------------ floating bottom bar */
+
+/* A glass capsule nearly as wide as the screen, sitting just above the gesture
+   handle, with a soft tinted pill sliding under the active tab. */
+html[data-platform="android"][data-mobile="true"] .mobile-tabs {
+  position: fixed;
+  inset-inline: 4px;
+  bottom: var(--m3-bar-gap);
+  z-index: 45;
+  display: flex;
   align-items: stretch;
-  z-index: 40;
-  height: calc(58px + env(safe-area-inset-bottom));
-  padding: 0 8px env(safe-area-inset-bottom);
-  border-top: 1px solid var(--border);
-  background: var(--editor);
+  gap: 0;
+  height: 76px;
+  padding: 3px;
+  border: 0;
+  border-radius: 38px;
+  background: var(--m3-glass);
+  -webkit-backdrop-filter: var(--m3-blur);
+  backdrop-filter: var(--m3-blur);
+  box-shadow:
+    0 6px 24px rgba(0, 0, 0, 0.13),
+    0 1px 3px rgba(0, 0, 0, 0.07),
+    inset 0 0.5px 0 color-mix(in srgb, #fff 55%, transparent);
+}
+html[data-platform="android"][data-mobile="true"][data-theme="dark"] .mobile-tabs {
+  box-shadow:
+    0 6px 24px rgba(0, 0, 0, 0.45),
+    inset 0 0.5px 0 color-mix(in srgb, #fff 14%, transparent);
+}
+html[data-platform="android"][data-mobile="true"] .mobile-tabs [data-mobile-tab="search"] { display: none; }
+html[data-platform="android"][data-mobile="true"] .tab-indicator {
+  display: block;
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 0;
+  border-radius: 35px;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  transition: transform 380ms var(--m3-spring), width 300ms var(--m3-standard), opacity 160ms ease;
 }
 html[data-platform="android"][data-mobile="true"] .mobile-tabs button {
+  position: relative;
+  z-index: 1;
   flex: 1 1 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 2px;
   min-width: 0;
-  padding: 4px 2px;
+  padding: 0;
   border: 0;
-  border-radius: 12px;
+  border-radius: 35px;
   background: transparent;
-  color: var(--faint);
-  font-size: 10px;
+  color: var(--text);
+  font-size: 14px;
   font-weight: 500;
-  letter-spacing: 0.01em;
+  line-height: 18px;
+  transition: color 200ms var(--m3-standard);
 }
-html[data-platform="android"][data-mobile="true"] .mobile-tabs button.on { color: var(--accent); }
+html[data-platform="android"][data-mobile="true"] .mobile-tabs button.on { color: var(--accent); font-weight: 600; }
 html[data-platform="android"][data-mobile="true"] .tab-glyph {
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 26px;
-  border-radius: 13px;
+  width: 32px;
+  height: 32px;
 }
 html[data-platform="android"][data-mobile="true"] .tab-glyph svg {
-  width: 22px;
-  height: 22px;
+  width: 27px;
+  height: 27px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.7;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+html[data-platform="android"][data-mobile="true"] .mobile-tabs button.on .tab-glyph svg { stroke-width: 2.1; }
 html[data-platform="android"][data-mobile="true"] body.mobile-editor .mobile-tabs { display: none; }
+html[data-platform="android"][data-mobile="true"].keyboard-open .mobile-tabs { display: none; }
 
-/* The top bar is only search and sync now; primary actions live at the
-   bottom of the screen. */
-html[data-platform="android"][data-mobile="true"] .topbar > #toggle-sidebar,
-html[data-platform="android"][data-mobile="true"] .topbar > #new-note,
-html[data-platform="android"][data-mobile="true"] .topbar > #lock,
-html[data-platform="android"][data-mobile="true"] .topbar > #open-settings { display: none !important; }
+/* The floating action button: tonal and square-ish, above the bar. */
+html[data-platform="android"][data-mobile="true"] .mobile-compose {
+  position: fixed;
+  inset-inline-end: 16px;
+  bottom: var(--m3-bar-space);
+  z-index: 38;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--m3-primary-container);
+  color: var(--m3-on-primary-container);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 4px 8px 3px rgba(0, 0, 0, 0.15);
+}
+html[data-platform="android"][data-mobile="true"] .mobile-compose svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+html[data-platform="android"][data-mobile="true"] body.mobile-editor .mobile-compose,
+html[data-platform="android"][data-mobile="true"] body.mobile-search .mobile-compose,
+html[data-platform="android"][data-mobile="true"] body.mobile-nav .mobile-compose { display: none; }
+html[data-platform="android"][data-mobile="true"].keyboard-open .mobile-compose { display: none; }
 
-/* Browse is a sheet from the bottom, not a drawer from the side. */
-html[data-platform="android"][data-mobile="true"] .sidebar {
-  top: auto;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  width: auto;
-  max-height: min(78vh, 640px);
-  height: auto;
+/* ----------------------------------------------------------------- editor */
+
+html[data-platform="android"][data-mobile="true"] .editor { display: none; flex-direction: column; background: var(--m3-surface); }
+html[data-platform="android"][data-mobile="true"] body.mobile-editor .editor { display: flex; animation: m3-forward 300ms var(--m3-standard); }
+@keyframes m3-forward {
+  from { opacity: 0; transform: translateX(32px); }
+  to { opacity: 1; transform: none; }
+}
+html[data-platform="android"][data-mobile="true"][dir="rtl"] body.mobile-editor .editor { animation-name: m3-fade-through; }
+@keyframes m3-fade-through {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+html[data-platform="android"][data-mobile="true"] .editor-tools {
+  display: flex;
   flex: 0 0 auto;
-  border-radius: 22px 22px 0 0;
-  transform: translateY(105%);
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  box-shadow: 0 -22px 60px rgba(0, 0, 0, 0.25);
+  align-items: center;
+  order: 0;
+  height: calc(64px + var(--sat));
+  padding: var(--sat) 4px 0;
+  gap: 0;
+  border: 0;
+  background: transparent;
 }
-html[data-platform="android"][data-mobile="true"] .sidebar.is-hidden {
+html[data-platform="android"][data-mobile="true"] .editor-tools > :is(#export, #history, #focus) { display: none !important; }
+html[data-platform="android"][data-mobile="true"] .mobile-back { display: grid; order: 0; color: var(--text) !important; }
+html[data-platform="android"][data-mobile="true"] .editor-tools .spacer { order: 1; flex: 1; }
+html[data-platform="android"][data-mobile="true"] .editor-tools #pin { order: 2; }
+html[data-platform="android"][data-mobile="true"] .editor-tools #star { order: 3; }
+html[data-platform="android"][data-mobile="true"] .editor-tools #trash-note { order: 4; }
+html[data-platform="android"][data-mobile="true"] .editor-tools #editor-menu { order: 5; }
+html[data-platform="android"][data-mobile="true"] .editor-tools .icon.on { color: var(--accent); }
+
+html[data-platform="android"][data-mobile="true"] .title {
+  order: 1;
+  flex: 0 0 auto;
+  padding: 8px 24px 2px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 36px;
+}
+html[data-platform="android"][data-mobile="true"] .editor-dock { display: contents; }
+html[data-platform="android"][data-mobile="true"] .editor-foot {
+  order: 2;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 12px;
+  padding: 0 24px 6px;
+  border: 0;
+  background: transparent;
+  color: var(--m3-variant);
+  font-size: 12px;
+}
+html[data-platform="android"][data-mobile="true"] .editor-foot > :is(#print, #info) { display: none !important; }
+html[data-platform="android"][data-mobile="true"] .editor-foot .notebook-chip {
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--m3-outline-variant);
+  border-radius: 8px;
+  background: none;
+  color: var(--m3-variant);
+  font-size: 14px;
+  font-weight: 500;
+}
+html[data-platform="android"][data-mobile="true"] .editor-foot .notebook-chip svg { width: 18px; height: 18px; }
+html[data-platform="android"][data-mobile="true"] .editor-foot .text-style {
+  width: 40px;
+  height: 32px;
+  border-radius: 16px;
+  background: var(--m3-secondary-container);
+  color: var(--text);
+  font-size: 14px;
+}
+html[data-platform="android"][data-mobile="true"] .body {
+  order: 3;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 6px 24px calc(var(--sab) + 84px);
+  font-size: calc(var(--editor-size, 15px) + 1px);
+  line-height: 1.5;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-user-select: text;
+  user-select: text;
+}
+/* The bottom toolbar is docked to the edge and sits above the keyboard. */
+html[data-platform="android"][data-mobile="true"] .editor-dock .format-bar,
+html[data-platform="android"][data-mobile="true"] .format-bar {
+  position: absolute;
+  inset-inline: 4px;
+  bottom: var(--m3-bar-gap);
+  z-index: 5;
+  display: flex;
+  align-items: center;
   width: auto;
-  flex-basis: auto;
-  opacity: 0;
-  transform: translateY(105%);
-  pointer-events: none;
+  max-width: none;
+  height: 64px;
+  margin: 0;
+  padding: 0 8px;
+  gap: 0;
+  border: 0;
+  border-radius: 32px;
+  overflow-x: auto;
+  background: var(--m3-glass);
+  -webkit-backdrop-filter: var(--m3-blur);
+  backdrop-filter: var(--m3-blur);
+  box-shadow:
+    0 6px 24px rgba(0, 0, 0, 0.13),
+    inset 0 0.5px 0 color-mix(in srgb, #fff 55%, transparent);
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
 }
-html[data-platform="android"][data-mobile="true"] body.mobile-nav .sidebar,
-html[data-platform="android"][data-mobile="true"] body.mobile-nav .sidebar.is-hidden {
+html[data-platform="android"][data-mobile="true"].keyboard-open .format-bar { bottom: 6px; }
+html[data-platform="android"][data-mobile="true"] .format-bar button {
+  flex: 0 0 auto;
+  min-width: 48px;
+  height: 48px;
+  padding: 0 10px;
+  border-radius: 24px;
+  background: transparent;
+  color: var(--m3-variant);
+}
+html[data-platform="android"][data-mobile="true"] .format-bar button:hover { background: transparent; color: var(--m3-variant); }
+html[data-platform="android"][data-mobile="true"] .format-bar button.on { background: var(--m3-secondary-container); color: var(--text); }
+html[data-platform="android"][data-mobile="true"] .format-bar svg { width: 24px; height: 24px; }
+
+/* ----------------------------------------------- pages instead of pop-ups */
+
+html[data-platform="android"][data-mobile="true"] .modal { bottom: var(--keyboard-inset); z-index: 100; }
+
+/* Settings is a destination: a full page, under the navigation bar. */
+html[data-platform="android"][data-mobile="true"] #settings-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 39;
+  display: block;
+  padding: 0;
+  background: var(--m3-surface);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  animation: none;
+}
+html[data-platform="android"][data-mobile="true"] #settings-modal[hidden] { display: none !important; }
+html[data-platform="android"][data-mobile="true"].keyboard-open #settings-modal { bottom: var(--keyboard-inset); }
+html[data-platform="android"][data-mobile="true"] :is(#tour, #export-modal, #history-modal, #first-sync, #lock-screen) {
+  display: block;
+  padding: 0;
+  background: var(--m3-surface);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+html[data-platform="android"][data-mobile="true"] :is(#tour, #export-modal, #history-modal, #first-sync, #lock-screen)[hidden] { display: none !important; }
+html[data-platform="android"][data-mobile="true"] #settings-modal .sheet.wide,
+html[data-platform="android"][data-mobile="true"] :is(#tour, #export-modal, #history-modal, #first-sync, #lock-screen) > :is(.sheet, .decision-sheet) {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--m3-surface);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: none;
+  animation: none;
+}
+html[data-platform="android"][data-mobile="true"] #settings-modal .sheet.wide { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+html[data-platform="android"][data-mobile="true"] :is(#tour, #export-modal, #history-modal, #first-sync, #lock-screen) > :is(.sheet, .decision-sheet) {
+  padding: calc(var(--sat) + 20px) 24px calc(var(--sab) + 16px);
+  overflow-y: auto;
+}
+html[data-platform="android"][data-mobile="true"] :is(#tour, #export-modal, #history-modal) > .sheet > h3:first-child,
+html[data-platform="android"][data-mobile="true"] #first-sync h2 { font-size: 28px; font-weight: 400; line-height: 36px; }
+html[data-platform="android"][data-mobile="true"] :is(#tour, #export-modal, #history-modal, #first-sync, #lock-screen) .modal-row :is(.primary, .ghost) {
+  height: 40px;
+  padding: 0 24px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+html[data-platform="android"][data-mobile="true"] .settings-nav {
+  position: absolute;
+  top: 0;
+  inset-inline: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  height: calc(64px + var(--sat));
+  padding: var(--sat) 4px 0;
+  background: color-mix(in srgb, var(--m3-surface) 55%, transparent);
+  -webkit-backdrop-filter: var(--m3-blur);
+  backdrop-filter: var(--m3-blur);
+}
+html[data-platform="android"][data-mobile="true"] #settings-title {
+  flex: 1;
+  overflow: hidden;
+  padding-inline-start: 4px;
+  color: var(--text);
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 28px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html[data-platform="android"][data-mobile="true"] .at-root #settings-title { padding-inline-start: 20px; }
+html[data-platform="android"][data-mobile="true"] #settings-back { color: var(--text); }
+html[data-platform="android"][data-mobile="true"] .sheet.wide > .modal-row { display: none; }
+
+html[data-platform="android"][data-mobile="true"] .settings-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  height: auto;
+  max-height: none;
+}
+html[data-platform="android"][data-mobile="true"] .settings-tabs {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
   width: auto;
-  flex-basis: auto;
-  opacity: 1;
-  visibility: visible;
-  transform: none;
-  pointer-events: auto;
+  margin: calc(68px + var(--sat)) 16px 0;
+  padding: 0;
+  gap: 2px;
+  border: 0;
+  background: none;
 }
-html[data-platform="android"][data-mobile="true"] .sidebar::before {
+html[data-platform="android"][data-mobile="true"] .at-page .settings-tabs { display: none; }
+html[data-platform="android"][data-mobile="true"] .at-root .settings-pages { display: none; }
+html[data-platform="android"][data-mobile="true"] .settings-tabs button {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  min-height: 72px;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 4px;
+  background: var(--m3-low);
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 400;
+  text-align: start;
+  white-space: nowrap;
+}
+html[data-platform="android"][data-mobile="true"] .settings-tabs button.active { background: var(--m3-low); color: var(--text); }
+html[data-platform="android"][data-mobile="true"] .settings-tabs button:first-child { border-top-left-radius: 24px; border-top-right-radius: 24px; }
+html[data-platform="android"][data-mobile="true"] .settings-tabs button:last-child { border-bottom-left-radius: 24px; border-bottom-right-radius: 24px; }
+/* Coloured circles, as Android's own Settings has. */
+html[data-platform="android"][data-mobile="true"] .settings-tabs button::before {
+  content: "";
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--tile) center / 22px 22px no-repeat var(--glyph);
+}
+html[data-platform="android"][data-mobile="true"] .settings-tabs [data-tab="sync"] { --tile: #1a73e8; --glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 11a8 8 0 0 0-13.7-5.6L4 7.6M4 4v3.6h3.6M4 13a8 8 0 0 0 13.7 5.6l2.3-2.2M20 20v-3.6h-3.6'/%3E%3C/svg%3E"); }
+html[data-platform="android"][data-mobile="true"] .settings-tabs [data-tab="themes"] { --tile: #9334e6; --glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='8.5'/%3E%3Cpath d='M12 3.5v17a8.5 8.5 0 0 0 0-17z' fill='white'/%3E%3C/svg%3E"); }
+html[data-platform="android"][data-mobile="true"] .settings-tabs [data-tab="general"] { --tile: #5f6368; --glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M4 7h9M18 7h2M4 17h2M11 17h9'/%3E%3Ccircle cx='15.5' cy='7' r='2.5'/%3E%3Ccircle cx='8.5' cy='17' r='2.5'/%3E%3C/svg%3E"); }
+html[data-platform="android"][data-mobile="true"] .settings-tabs [data-tab="editor"] { --tile: #e37400; --glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20h4.2L19 9.2a2.5 2.5 0 0 0-3.5-3.5L4.7 16.5z'/%3E%3C/svg%3E"); }
+html[data-platform="android"][data-mobile="true"] .settings-tabs [data-tab="about"] { --tile: #188038; --glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='M12 11v7M12 6.5h.01'/%3E%3C/svg%3E"); }
+
+html[data-platform="android"][data-mobile="true"] .settings-pages {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: calc(68px + var(--sat)) 16px var(--m3-bar-space);
+  overflow-y: auto;
+  background: transparent;
+}
+html[data-platform="android"][data-mobile="true"] .settings-pages section > h3:first-child { display: none; }
+html[data-platform="android"][data-mobile="true"] .settings-pages .hint {
+  margin: 8px 16px 0;
+  color: var(--m3-variant);
+  font-size: 14px;
+  line-height: 20px;
+}
+html[data-platform="android"][data-mobile="true"] .settings-pages h4 {
+  margin: 24px 16px 8px;
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+}
+html[data-platform="android"][data-mobile="true"] .settings-group { display: flex; flex-direction: column; gap: 2px; margin-top: 12px; }
+html[data-platform="android"][data-mobile="true"] .settings-group > * {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 56px;
+  margin: 0;
+  padding: 10px 16px;
+  border-radius: 4px;
+  background: var(--m3-low);
+  color: var(--text);
+  font-size: 16px;
+}
+html[data-platform="android"][data-mobile="true"] .settings-group > :first-child { border-top-left-radius: 24px; border-top-right-radius: 24px; }
+html[data-platform="android"][data-mobile="true"] .settings-group > :last-child { border-bottom-left-radius: 24px; border-bottom-right-radius: 24px; }
+html[data-platform="android"][data-mobile="true"] .settings-group > label:has(> input:not([type="checkbox"])) {
+  display: block;
+  color: var(--m3-variant);
+  font-size: 12px;
+}
+html[data-platform="android"][data-mobile="true"] .settings-group > label > input:not([type="checkbox"]) {
+  display: block;
+  width: 100%;
+  height: 28px;
+  margin: 2px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text);
+  font-size: 16px;
+}
+html[data-platform="android"][data-mobile="true"] .settings-group select {
+  flex: 0 1 auto;
+  width: auto;
+  max-width: 58%;
+  height: 40px;
+  margin: 0;
+  padding: 0 28px 0 12px;
+  border: 1px solid var(--m3-outline-variant);
+  border-radius: 8px;
+  box-shadow: none;
+  -webkit-appearance: none;
+  appearance: none;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  background: no-repeat right 8px center / 18px 18px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 10l5 5 5-5z' fill='%23808088'/%3E%3C/svg%3E");
+}
+html[data-platform="android"][data-mobile="true"][dir="rtl"] .settings-group select { padding: 0 12px 0 28px; background-position: left 8px center; }
+html[data-platform="android"][data-mobile="true"] .option-row span { flex: 1 1 auto; min-width: 0; }
+html[data-platform="android"][data-mobile="true"] .settings-group > div > .check { flex: 1; justify-content: space-between; margin: 0; color: inherit; font-size: inherit; }
+html[data-platform="android"][data-mobile="true"] .option-row .size-slider { display: flex; flex: 2 1 0; align-items: center; gap: 10px; margin: 0; }
+html[data-platform="android"][data-mobile="true"] .option-row .size-slider input { flex: 1; min-width: 0; margin: 0; }
+html[data-platform="android"][data-mobile="true"] .option-row .size-slider span { flex: 0 0 auto; }
+/* A phone has no keyboard shortcuts to list. */
+html[data-platform="android"][data-mobile="true"] [data-page="about"] h4,
+html[data-platform="android"][data-mobile="true"] .keys { display: none; }
+
+/* The Material switch: its handle grows when it turns on. */
+html[data-platform="android"][data-mobile="true"] .check input[type="checkbox"] {
+  order: 2;
+  position: relative;
+  flex: 0 0 52px;
+  width: 52px;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+  border: 2px solid var(--m3-outline);
+  border-radius: 16px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--m3-high);
+  box-shadow: none;
+  transition: background-color 200ms var(--m3-standard), border-color 200ms var(--m3-standard);
+}
+html[data-platform="android"][data-mobile="true"] .check input[type="checkbox"]::before {
   content: "";
   position: absolute;
-  top: 8px;
-  left: 50%;
-  width: 38px;
-  height: 5px;
-  border-radius: 3px;
-  background: var(--border);
-  transform: translateX(-50%);
-  z-index: 3;
+  top: 6px;
+  inset-inline-start: 6px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--m3-outline);
+  transition: all 200ms var(--m3-standard);
 }
-html[data-platform="android"][data-mobile="true"] .sidebar .pane-head { padding-top: 20px; }
-html[data-platform="android"][data-mobile="true"] .sidebar-scroll { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
-html[data-platform="android"][data-mobile="true"] .mobile-scrim {
-  top: 0;
-  bottom: 0;
-  z-index: 45;
+html[data-platform="android"][data-mobile="true"] .check input[type="checkbox"]:checked { border-color: var(--accent); background: var(--accent); }
+html[data-platform="android"][data-mobile="true"] .check input[type="checkbox"]:checked::before {
+  top: 2px;
+  inset-inline-start: 22px;
+  width: 24px;
+  height: 24px;
+  background: #fff;
+}
+html[data-platform="android"][data-mobile="true"] .check input[type="checkbox"]::after { content: none; }
+
+html[data-platform="android"][data-mobile="true"] .settings-pages .modal-row { flex-wrap: wrap; gap: 8px; margin: 16px 0 0; padding: 0; }
+html[data-platform="android"][data-mobile="true"] .settings-pages .modal-row .spacer { display: none; }
+html[data-platform="android"][data-mobile="true"] .settings-pages .modal-row :is(.primary, .ghost),
+html[data-platform="android"][data-mobile="true"] .sync-actions #s-connect,
+html[data-platform="android"][data-mobile="true"] .sync-actions #s-save {
+  height: 40px;
+  padding: 0 24px;
+  border: 0;
+  border-radius: 20px;
+  box-shadow: none;
+  font-size: 14px;
+  font-weight: 500;
+}
+html[data-platform="android"][data-mobile="true"] .settings-pages .modal-row .primary,
+html[data-platform="android"][data-mobile="true"] .sync-actions #s-connect { background: var(--accent); color: #fff; }
+html[data-platform="android"][data-mobile="true"] .settings-pages .modal-row .ghost,
+html[data-platform="android"][data-mobile="true"] .sync-actions #s-save { background: var(--m3-secondary-container); color: var(--text); }
+html[data-platform="android"][data-mobile="true"] .settings-pages .modal-row .ghost.danger { color: var(--danger); }
+html[data-platform="android"][data-mobile="true"] #s-connected { flex-basis: 100%; margin: 4px 16px 0; white-space: normal; overflow-wrap: anywhere; }
+
+/* Notebook names edit in place, in rows like the others. */
+html[data-platform="android"][data-mobile="true"] #g-notebooks { display: flex; flex-direction: column; gap: 2px; }
+html[data-platform="android"][data-mobile="true"] .nb-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  margin: 0;
+  padding-block: 6px;
+  padding-inline: 16px 8px;
+  border-radius: 4px;
+  background: var(--m3-low);
+}
+html[data-platform="android"][data-mobile="true"] .nb-row:first-child { border-top-left-radius: 24px; border-top-right-radius: 24px; }
+html[data-platform="android"][data-mobile="true"] .nb-row:last-child { border-bottom-left-radius: 24px; border-bottom-right-radius: 24px; }
+html[data-platform="android"][data-mobile="true"] .nb-row input {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text);
+  font-size: 16px;
+}
+html[data-platform="android"][data-mobile="true"] .nb-row .ghost { height: 40px; padding: 0 12px; border-radius: 20px; font-size: 14px; font-weight: 500; }
+html[data-platform="android"][data-mobile="true"] .accent-row { margin: 4px 0 16px; }
+html[data-platform="android"][data-mobile="true"] .theme-row { margin-top: 8px; }
+html[data-platform="android"][data-mobile="true"] .settings-pages .primary { background: var(--accent); background-image: none; }
+
+/* Segmented buttons. */
+html[data-platform="android"][data-mobile="true"] .segmented { display: flex; width: 100%; gap: 0; margin: 4px 0 16px; }
+html[data-platform="android"][data-mobile="true"] .segmented button {
+  flex: 1;
+  height: 40px;
+  margin-inline-start: -1px;
+  border: 1px solid var(--m3-outline);
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+}
+html[data-platform="android"][data-mobile="true"] .segmented button:first-child { margin-inline-start: 0; border-start-start-radius: 20px; border-end-start-radius: 20px; }
+html[data-platform="android"][data-mobile="true"] .segmented button:last-child { border-start-end-radius: 20px; border-end-end-radius: 20px; }
+html[data-platform="android"][data-mobile="true"] .segmented button.active { border-color: var(--m3-outline); background: var(--m3-secondary-container); color: var(--text); }
+
+/* The lock screen is a page too, with its few controls in the middle. */
+html[data-platform="android"][data-mobile="true"] #lock-screen > .sheet {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+}
+html[data-platform="android"][data-mobile="true"] #lock-screen h3 { margin: 0 0 8px; color: var(--text); font-size: 28px; font-weight: 400; }
+html[data-platform="android"][data-mobile="true"] #lock-screen .hint { color: var(--m3-variant); font-size: 14px; }
+html[data-platform="android"][data-mobile="true"] #lock-screen input {
+  height: 56px;
+  margin-top: 24px;
+  border: 1px solid var(--m3-outline);
+  border-radius: 4px;
+  background: transparent;
+  box-shadow: none;
+  font-size: 16px;
+  text-align: center;
+}
+html[data-platform="android"][data-mobile="true"] #lock-screen .modal-row .spacer { display: none; }
+html[data-platform="android"][data-mobile="true"] #lock-screen .primary { flex: 1; height: 48px; border-radius: 24px; background: var(--accent); }
+
+/* In-note search sits under the bar rather than behind the status bar. */
+html[data-platform="android"][data-mobile="true"] .find-bar {
+  top: calc(68px + var(--sat));
+  inset-inline: 16px;
+  min-height: 56px;
+  border: 0;
+  border-radius: 28px;
+  background: var(--m3-glass);
+  -webkit-backdrop-filter: var(--m3-blur);
+  backdrop-filter: var(--m3-blur);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.13);
+}
+html[data-platform="android"][data-mobile="true"] .find-bar input { flex: 1; min-width: 0; }
+
+/* Messages clear the floating bars and the keyboard. */
+html[data-platform="android"][data-mobile="true"] .toast {
+  bottom: calc(var(--m3-bar-space) + var(--keyboard-inset));
+  z-index: 110;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  padding: 14px 16px;
+  border-radius: 8px;
+  font-size: 14px;
 }
 
-/* Context menus become native-style actions sheets. */
-.menu-sheet {
-  position: fixed;
-  left: 8px;
-  right: 8px;
-  top: auto;
-  bottom: calc(8px + env(safe-area-inset-bottom));
-  max-height: 70vh;
-  overflow-y: auto;
-  z-index: 90;
+/* Long-lived popovers share the glass, and stay on the screen. */
+html[data-platform="android"][data-mobile="true"] .text-style-pop,
+html[data-platform="android"][data-mobile="true"] .palette,
+html[data-platform="android"][data-mobile="true"] .slash-menu {
+  max-width: calc(100vw - 24px);
+  border: 0;
   border-radius: 20px;
-  animation: mobile-sheet-in 220ms var(--ease);
+  background: color-mix(in srgb, var(--m3-high) 72%, transparent);
+  -webkit-backdrop-filter: blur(40px) saturate(190%);
+  backdrop-filter: blur(40px) saturate(190%);
+  box-shadow: 0 4px 8px 3px rgba(0, 0, 0, 0.15), 0 1px 3px rgba(0, 0, 0, 0.3);
 }
-.menu-scrim {
+html[data-platform="android"][data-mobile="true"] .formula-sheet { width: min(calc(100vw - 24px), 460px); max-width: 100%; max-height: 80vh; overflow-y: auto; }
+
+/* ------------------------------------------------------ dialogs and menus */
+
+/* Only short questions stay as overlays, and those are Material dialogs. */
+html[data-platform="android"][data-mobile="true"] .modal.dialog { background: rgba(0, 0, 0, 0.28); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+html[data-platform="android"][data-mobile="true"] .modal.dialog .sheet {
+  width: min(calc(100vw - 48px), 400px);
+  max-height: 80vh;
+  padding: 24px;
+  border: 0;
+  border-radius: 28px;
+  background: color-mix(in srgb, var(--m3-high) 72%, transparent);
+  -webkit-backdrop-filter: blur(40px) saturate(190%);
+  backdrop-filter: blur(40px) saturate(190%);
+  box-shadow: 0 4px 8px 3px rgba(0, 0, 0, 0.15), 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+html[data-platform="android"][data-mobile="true"] .modal.dialog .sheet h3 { margin: 0 0 12px; color: var(--text); font-size: 24px; font-weight: 400; line-height: 32px; }
+html[data-platform="android"][data-mobile="true"] .modal.dialog .sheet .hint { color: var(--m3-variant); font-size: 14px; line-height: 20px; }
+html[data-platform="android"][data-mobile="true"] .modal.dialog .sheet input {
+  height: 56px;
+  padding: 0 16px;
+  border: 1px solid var(--m3-outline);
+  border-radius: 4px;
+  background: transparent;
+  box-shadow: none;
+  font-size: 16px;
+}
+html[data-platform="android"][data-mobile="true"] .modal.dialog .sheet input:focus { border: 2px solid var(--accent); box-shadow: none; }
+html[data-platform="android"][data-mobile="true"] .modal.dialog .modal-row { justify-content: flex-end; gap: 8px; margin-top: 24px; }
+html[data-platform="android"][data-mobile="true"] .modal.dialog .modal-row .spacer { display: none; }
+html[data-platform="android"][data-mobile="true"] .modal.dialog .modal-row :is(.primary, .ghost) {
+  height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 20px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 500;
+}
+html[data-platform="android"][data-mobile="true"] .modal.dialog .modal-row .primary.danger { color: var(--danger); }
+
+/* Menus are modal bottom sheets: handle on top, dismissed by back or the scrim. */
+html[data-platform="android"][data-mobile="true"] .menu-scrim {
   position: fixed;
   inset: 0;
   z-index: 89;
-  background: rgba(10, 14, 20, 0.28);
-  animation: mobile-fade-in 180ms ease-out;
+  background: rgba(0, 0, 0, 0.26);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  animation: m3-fade-in 200ms linear;
 }
-.menu-cancel {
+html[data-platform="android"][data-mobile="true"] .context-menu.menu-sheet {
+  position: fixed;
+  inset-inline: 0;
+  top: auto;
+  bottom: 0;
+  width: auto;
+  max-height: 84vh;
+  padding: 36px 0 calc(var(--sab) + 12px);
+  overflow-y: auto;
+  z-index: 90;
+  border: 0;
+  border-radius: 28px 28px 0 0;
+  background: color-mix(in srgb, var(--m3-low) 68%, transparent);
+  -webkit-backdrop-filter: blur(48px) saturate(190%);
+  backdrop-filter: blur(48px) saturate(190%);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 4px 8px 3px rgba(0, 0, 0, 0.15);
+  animation: m3-sheet-in 300ms var(--m3-standard);
+}
+html[data-platform="android"][data-mobile="true"] .context-menu.menu-sheet::before {
+  content: "";
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  width: 32px;
+  height: 4px;
+  margin-left: -16px;
+  border-radius: 2px;
+  background: var(--m3-outline);
+  opacity: 0.6;
+}
+html[data-platform="android"][data-mobile="true"] .context-menu.menu-sheet button {
+  display: flex;
+  align-items: center;
+  gap: 16px;
   width: 100%;
-  margin-top: 6px;
-  padding: 12px;
-  border-top: 1px solid var(--border);
-  border-radius: 0 0 14px 14px;
-  color: var(--dim);
-  font-weight: 500;
+  min-height: 56px;
+  padding: 8px 24px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 16px;
 }
-@keyframes mobile-sheet-in {
-  from { opacity: 0; transform: translateY(28px); }
-  to { opacity: 1; transform: none; }
+html[data-platform="android"][data-mobile="true"] .context-menu.menu-sheet button.danger { color: var(--danger); }
+html[data-platform="android"][data-mobile="true"] .context-menu.menu-sheet .menu-icon { color: var(--m3-variant); }
+html[data-platform="android"][data-mobile="true"] .context-menu.menu-sheet button.danger .menu-icon { color: var(--danger); }
+html[data-platform="android"][data-mobile="true"] .context-menu.menu-sheet .menu-hint { display: none; }
+html[data-platform="android"][data-mobile="true"] .context-menu.menu-sheet .menu-sep { height: 1px; margin: 8px 24px; background: var(--m3-outline-variant); }
+html[data-platform="android"][data-mobile="true"] .context-menu.menu-sheet .menu-cancel { display: none; }
+@keyframes m3-sheet-in {
+  from { transform: translateY(100%); }
+  to { transform: none; }
 }
-@keyframes mobile-fade-in {
+@keyframes m3-fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
-/* Browse is a destination, not a sheet: the tabs stay reachable. */
-html[data-platform="android"][data-mobile="true"] { --mobile-tabs-h: 58px; }
-html[data-platform="android"][data-mobile="true"] .sidebar {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  max-height: none;
-  display: none;
-  flex: 1 1 auto;
-  border-radius: 0;
-  transform: none;
-  opacity: 1;
-  visibility: visible;
-  pointer-events: auto;
-  box-shadow: none;
-  z-index: 1;
-}
-html[data-platform="android"][data-mobile="true"] body.mobile-nav .sidebar,
-html[data-platform="android"][data-mobile="true"] body.mobile-nav .sidebar.is-hidden {
-  display: flex;
-  width: 100%;
-  flex-basis: auto;
-  transform: none;
-  opacity: 1;
-  visibility: visible;
-  pointer-events: auto;
-  animation: mobile-view-in 180ms var(--ease);
-}
-html[data-platform="android"][data-mobile="true"] .sidebar.is-hidden {
-  display: none;
-  width: 100%;
-  flex-basis: auto;
-  transform: none;
-  opacity: 1;
-}
-html[data-platform="android"][data-mobile="true"] .sidebar::before { content: none; }
-html[data-platform="android"][data-mobile="true"] .sidebar .pane-head { padding-top: 8px; }
-html[data-platform="android"][data-mobile="true"] body.mobile-nav .list,
-html[data-platform="android"][data-mobile="true"] body.mobile-nav .editor { display: none; }
-html[data-platform="android"][data-mobile="true"] .mobile-scrim { display: none !important; }
-html[data-platform="android"][data-mobile="true"] body.mobile-search .search-box {
-  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+/* ----------------------------------------------------------------- motion */
+
+html[data-platform="android"][data-mobile="true"] .mobile-tabs button.on .tab-glyph { animation: m3-hop 420ms var(--m3-spring); }
+html[data-platform="android"][data-mobile="true"] .mobile-tabs button:active .tab-glyph { transform: scale(0.86); transition: transform 120ms ease; }
+@keyframes m3-hop {
+  0% { transform: scale(0.78); }
+  55% { transform: scale(1.14); }
+  100% { transform: none; }
 }
 
-/* New note is an action, not a destination: a compose button above the tabs. */
-html[data-platform="android"][data-mobile="true"] .mobile-compose {
-  display: grid;
-  place-items: center;
-  position: fixed;
-  right: 16px;
-  bottom: calc(var(--mobile-tabs-h) + env(safe-area-inset-bottom) + 14px);
-  z-index: 38;
-  width: 52px;
-  height: 52px;
-  border: 0;
-  border-radius: 50%;
-  background: var(--accent);
-  color: #fff;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+/* The bar and the action button come back when the editor closes. */
+html[data-platform="android"][data-mobile="true"] body:not(.mobile-editor) .mobile-tabs { animation: m3-rise 400ms var(--m3-standard); }
+html[data-platform="android"][data-mobile="true"] body:not(.mobile-editor):not(.mobile-nav):not(.mobile-search) .mobile-compose { animation: m3-pop 380ms var(--m3-spring) 60ms both; }
+html[data-platform="android"][data-mobile="true"] .mobile-compose { transition: transform 140ms ease; }
+html[data-platform="android"][data-mobile="true"] .mobile-compose:active { transform: scale(0.92); }
+@keyframes m3-rise {
+  from { opacity: 0; transform: translateY(28px); }
+  to { opacity: 1; transform: none; }
 }
-html[data-platform="android"][data-mobile="true"] .mobile-compose svg {
-  width: 24px;
-  height: 24px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-}
-html[data-platform="android"][data-mobile="true"] body.mobile-editor @keyframes mobile-view-in {
-  from { opacity: 0; transform: translateX(12px); }
+@keyframes m3-pop {
+  from { opacity: 0; transform: scale(0.4) rotate(-45deg); }
   to { opacity: 1; transform: none; }
 }
 
-/* Android: the system status bar draws over the webview, so the toolbar and
-   the drawer need its height explicitly. */
-
-html[data-platform="android"] { -webkit-tap-highlight-color: transparent; }
-/* Android draws its own status bar over the webview. Give the toolbar and
-   the drawer the status-bar height so the controls stay tappable. */
-html[data-platform="android"] .topbar {
-  height: calc(48px + 32px);
-  padding-top: 32px;
-}
-html[data-platform="android"] .sidebar,
-html[data-platform="android"] .mobile-scrim {
-  top: calc(48px + 32px);
-}
-html[data-platform="android"] .modal { padding-top: calc(12px + 32px); }
-html[data-platform="android"] #settings-modal { padding-top: 0; }
-html[data-platform="android"] .settings-tabs { padding-top: calc(8px + 32px); }
-
-/* Android: Material-style top app bar, navigation bar and action sheets. */
-html[data-platform="android"] .topbar {
-  height: calc(56px + 32px);
-  padding-top: 32px;
-  border-radius: 0;
-  border-bottom: 1px solid var(--border);
-  background: var(--editor);
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-}
-html[data-platform="android"] .topbar .search-box {
-  height: 40px;
-  border-radius: 24px;
-  background: var(--hover);
-}
-html[data-platform="android"] .mobile-tabs {
-  height: calc(76px + env(safe-area-inset-bottom));
-  padding-bottom: env(safe-area-inset-bottom);
-  border-top: 1px solid var(--border);
-  background: var(--editor);
-  box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.10);
-}
-html[data-platform="android"] .mobile-tabs button {
-  gap: 4px;
-  border-radius: 0;
-  font-size: 11px;
-  font-weight: 500;
-}
-html[data-platform="android"] .mobile-tabs button:active { background: var(--hover); }
-html[data-platform="android"] .mobile-tabs button.on { color: var(--text); }
-html[data-platform="android"] .mobile-tabs button.on .tab-glyph {
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-}
-html[data-platform="android"] .tab-glyph {
-  width: 56px;
-  height: 30px;
-  border-radius: 15px;
-}
-html[data-platform="android"] .sidebar {
-  border-radius: 28px 28px 0 0;
-  background: var(--editor);
-  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.18);
-}
-html[data-platform="android"] .context-menu.menu-sheet {
-  border-radius: 28px 28px 0 0;
-  background: var(--editor);
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.18);
-}
-html[data-platform="android"] .menu-cancel { border-radius: 0; }
-html[data-platform="android"] .editor-dock {
-  background: var(--editor);
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  border: 1px solid var(--border);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
-}
-html[data-platform="android"] .mobile-tabs button,
-html[data-platform="android"] .row,
-html[data-platform="android"] .card,
-html[data-platform="android"] .icon { -webkit-tap-highlight-color: transparent; }
-
-html[data-platform="android"][data-mobile="true"] { --mobile-tabs-h: 76px; }
-html[data-platform="android"] .mobile-compose {
-  width: 56px;
-  height: 56px;
-  border-radius: 16px;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.22);
-}
-html[data-platform="android"] .mobile-compose:active { background: color-mix(in srgb, var(--accent) 88%, #000); }
-html[data-platform="android"] .sidebar {
-  border-radius: 0;
-  background: var(--editor);
-  box-shadow: none;
+/* A screen a tab reveals: its items arrive one after another. */
+html[data-platform="android"][data-mobile="true"] .list.view-enter .list-head,
+html[data-platform="android"][data-mobile="true"] .sidebar.view-enter .pane-head { animation: m3-settle 320ms var(--m3-standard) both; }
+html[data-platform="android"][data-mobile="true"] .list.view-enter .card { animation: m3-settle 380ms var(--m3-standard) both; }
+html[data-platform="android"][data-mobile="true"] .list.view-enter .card:nth-child(2) { animation-delay: 30ms; }
+html[data-platform="android"][data-mobile="true"] .list.view-enter .card:nth-child(3) { animation-delay: 60ms; }
+html[data-platform="android"][data-mobile="true"] .list.view-enter .card:nth-child(4) { animation-delay: 90ms; }
+html[data-platform="android"][data-mobile="true"] .list.view-enter .card:nth-child(5) { animation-delay: 120ms; }
+html[data-platform="android"][data-mobile="true"] .list.view-enter .card:nth-child(6) { animation-delay: 150ms; }
+html[data-platform="android"][data-mobile="true"] .list.view-enter .card:nth-child(n + 7) { animation-delay: 180ms; }
+html[data-platform="android"][data-mobile="true"] .sidebar.view-enter .sidebar-scroll { animation: m3-settle 380ms var(--m3-standard) 40ms both; }
+@keyframes m3-settle {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
 }
 
+/* The editor shrinks back into the list. */
+html[data-platform="android"][data-mobile="true"] body.editor-leaving .editor {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  animation: m3-back 260ms var(--m3-standard) forwards;
+}
+html[data-platform="android"][data-mobile="true"] body.editor-leaving .topbar { animation: m3-fade-in 260ms linear; }
+@keyframes m3-back { to { opacity: 0; transform: translateX(32px); } }
 
-/* Modern floating Material bar plus a separate compose action. */
-html[data-platform="android"][data-mobile="true"] { --mobile-tabs-h: 72px; }
-html[data-platform="android"][data-mobile="true"] .mobile-tabs {
-  position: fixed;
-  left: 10px;
-  right: 10px;
-  bottom: calc(10px + env(safe-area-inset-bottom));
-  height: 72px;
-  padding: 0 6px;
-  padding-bottom: 0;
-  border: 1px solid var(--border);
-  border-radius: 24px;
-  background: var(--editor);
-  box-shadow:
-    0 10px 30px rgba(0, 0, 0, 0.20),
-    0 2px 4px rgba(0, 0, 0, 0.08);
-  z-index: 45;
+/* Settings moves along a shared axis between its list and pages. */
+html[data-platform="android"][data-mobile="true"] .at-page .settings-pages { animation: m3-axis-forward 300ms var(--m3-standard); }
+html[data-platform="android"][data-mobile="true"] .at-root .settings-tabs { animation: m3-axis-back 300ms var(--m3-standard); }
+html[data-platform="android"][data-mobile="true"] .view-enter .settings-tabs { animation: m3-settle 340ms var(--m3-standard); }
+@keyframes m3-axis-forward {
+  from { opacity: 0; transform: translateX(36px); }
+  to { opacity: 1; transform: none; }
 }
-html[data-platform="android"][data-mobile="true"] .mobile-tabs button {
-  gap: 3px;
-  border-radius: 18px;
-  color: var(--dim);
-  font-size: 11px;
-}
-html[data-platform="android"][data-mobile="true"] .mobile-tabs button.on { color: var(--text); }
-html[data-platform="android"][data-mobile="true"] .mobile-tabs button.on .tab-glyph {
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-}
-html[data-platform="android"][data-mobile="true"] .tab-glyph { width: 52px; height: 30px; }
-html[data-platform="android"][data-mobile="true"] .mobile-tabs .tab-compose { display: none; }
-html[data-platform="android"][data-mobile="true"] .mobile-compose {
-  display: grid;
-  right: 16px;
-  bottom: calc(72px + env(safe-area-inset-bottom) + 32px);
-  width: 56px;
-  height: 56px;
-  border-radius: 16px;
-}
-html[data-platform="android"][data-mobile="true"] .list .cards,
-html[data-platform="android"][data-mobile="true"] .sidebar-scroll {
-  padding-bottom: calc(112px + env(safe-area-inset-bottom));
+@keyframes m3-axis-back {
+  from { opacity: 0; transform: translateX(-36px); }
+  to { opacity: 1; transform: none; }
 }
 
-/* Final Android chrome: a solid Material top app bar. */
-html[data-platform="android"][data-mobile="true"] .topbar {
-  height: calc(56px + 32px);
-  padding: 32px 10px 0;
-  border-radius: 0;
-  border-bottom: 1px solid var(--border);
-  background: var(--editor);
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+html[data-platform="android"][data-mobile="true"] body.mobile-editor .format-bar { animation: m3-rise 420ms var(--m3-standard) 60ms both; }
+html[data-platform="android"][data-mobile="true"] .modal.dialog .sheet { animation: m3-dialog 260ms var(--m3-standard); }
+@keyframes m3-dialog {
+  from { opacity: 0; transform: scale(0.88); }
+  to { opacity: 1; transform: none; }
 }
-html[data-platform="android"][data-mobile="true"] .topbar .search-box {
-  height: 40px;
-  border-radius: 24px;
-  background: var(--hover);
+html[data-platform="android"][data-mobile="true"] .context-menu.menu-sheet.is-leaving {
+  pointer-events: none;
+  animation: m3-sheet-out 220ms var(--m3-standard) forwards;
+}
+html[data-platform="android"][data-mobile="true"] .menu-scrim.is-leaving {
+  pointer-events: none;
+  animation: m3-fade-out 220ms linear forwards;
+}
+@keyframes m3-sheet-out { to { transform: translateY(100%); } }
+@keyframes m3-fade-out { to { opacity: 0; } }
+html[data-platform="android"][data-mobile="true"] .editor-tools .icon.on svg { animation: m3-hop 420ms var(--m3-spring); }
+
+html[data-platform="android"][data-mobile="true"]edia (prefers-reduced-motion: reduce) {
+  html[data-platform="android"][data-mobile="true"] *,
+  html[data-platform="android"][data-mobile="true"] *::before,
+  html[data-platform="android"][data-mobile="true"] *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 1ms !important;
+  }
 }
 
-
-/* On phones the welcome tour talks about touch, not keyboard shortcuts. */
-html[data-platform="android"][data-mobile="true"] .tour-desktop { display: none; }
-html[data-platform="android"][data-mobile="true"] .tour-mobile { display: block; }
-
-
-/* Dialogs sit above the floating navigation and compose action. */
-html[data-platform="android"][data-mobile="true"] .modal { z-index: 100; }
-
-/* The editor uses its own action row instead of the search app bar. */
-html[data-platform="android"][data-mobile="true"] body.mobile-editor .topbar { display: none; }
-html[data-platform="android"][data-mobile="true"] body.mobile-editor .editor-tools {
-  height: calc(46px + 32px);
-  padding-top: 32px;
+/* A webview too old to mix colours gets plain surfaces instead. */
+@supports not (color: color-mix(in srgb, red, blue)) {
+  html[data-platform="android"][data-mobile="true"] {
+    --m3-surface: #fdfbff;
+    --m3-low: #f6f4f9;
+    --m3-container: #f0eef4;
+    --m3-high: #eae8ee;
+    --m3-primary-container: #d8e3f8;
+    --m3-on-primary-container: #0e3f7f;
+    --m3-secondary-container: #dfe6f4;
+    --m3-variant: #5c5f66;
+    --m3-outline: #8a8d94;
+    --m3-outline-variant: #d5d6db;
+    --m3-ink: rgba(0, 0, 0, 0.12);
+    --m3-glass: rgba(253, 251, 255, 0.78);
+  }
+  html[data-platform="android"][data-mobile="true"][data-theme="dark"] {
+    --m3-surface: #121316;
+    --m3-low: #1a1b1f;
+    --m3-container: #1e1f23;
+    --m3-high: #292a2e;
+    --m3-primary-container: #2a4a78;
+    --m3-on-primary-container: #d6e4ff;
+    --m3-secondary-container: #2c3a50;
+    --m3-variant: #c2c4cb;
+    --m3-outline: #8d9096;
+    --m3-outline-variant: #3c3e43;
+    --m3-ink: rgba(255, 255, 255, 0.14);
+    --m3-glass: rgba(18, 19, 22, 0.78);
+  }
 }
-
-/* The compose action belongs to the list, not the editor. */
-html[data-platform="android"][data-mobile="true"] body.mobile-editor .mobile-compose { display: none !important; }
-
-/* Neutral, theme-adaptive header: no filled app bar. */
-html[data-platform="android"][data-mobile="true"] body,
-html[data-platform="android"][data-mobile="true"] .app,
-html[data-platform="android"][data-mobile="true"] .panes,
-html[data-platform="android"][data-mobile="true"] .list,
-html[data-platform="android"][data-mobile="true"] .sidebar { background: var(--editor); }
-html[data-platform="android"][data-mobile="true"] .topbar {
-  background: transparent;
-  border: 0;
-  box-shadow: none;
-}
-html[data-platform="android"][data-mobile="true"] .topbar .search-box {
-  border-color: transparent;
-  background: var(--hover);
-}
-html[data-platform="android"][data-mobile="true"] .list .cards {
-  gap: 8px;
-  padding: 8px 12px calc(112px + env(safe-area-inset-bottom));
-}
-html[data-platform="android"][data-mobile="true"] .list .card {
-  min-height: 0;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: var(--editor);
-}
-html[data-platform="android"][data-mobile="true"] .list .card.active {
-  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
-  background: var(--accent-soft);
-}
-html[data-platform="android"][data-mobile="true"] .sidebar .row {
-  margin: 2px 0;
-  border-radius: 12px;
-}
-html[data-platform="android"][data-mobile="true"] .list-head .icon,
-html[data-platform="android"][data-mobile="true"] .editor-tools .icon {
-  border-radius: 50%;
-}
-html[data-platform="android"][data-mobile="true"] .editor-dock { border-radius: 20px; }
-html[data-platform="android"][data-mobile="true"] .modal .sheet:not(.wide) { border-radius: 24px; }
-html[data-platform="android"][data-mobile="true"] .modal .sheet.wide {
-  border-radius: 24px !important;
-  overflow: hidden;
-}
-html[data-platform="android"][data-mobile="true"] #settings-modal {
-  padding: calc(8px + 32px) 8px calc(8px + env(safe-area-inset-bottom)) !important;
-}
-html[data-platform="android"][data-mobile="true"] .settings-tabs {
-  border-radius: 24px 24px 0 0;
-}
-html[data-platform="android"][data-mobile="true"] .settings-tabs button { border-radius: 12px; }
-html[data-platform="android"][data-mobile="true"] .sheet input,
-html[data-platform="android"][data-mobile="true"] .sheet select { border-radius: 12px; }
-html[data-platform="android"][data-mobile="true"] .sheet .primary,
-html[data-platform="android"][data-mobile="true"] .sheet .ghost { border-radius: 18px; }
-html[data-platform="android"][data-mobile="true"] .sheet.wide > .modal-row { border-radius: 0 0 24px 24px; }

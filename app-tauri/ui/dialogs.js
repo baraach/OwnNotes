@@ -198,14 +198,24 @@ const Dialog = (() => {
   function menu(x, y, items, options = {}) {
     document.querySelector(".context-menu")?.remove();
     document.querySelector(".menu-scrim")?.remove();
-    const mobile = document.documentElement.dataset.mobile === "true";
+    // Only phones have sheet styles; a narrow desktop window keeps its popover.
+    const mobile = ["ios", "android"].includes(document.documentElement.dataset.platform);
     const box = document.createElement("div");
     box.className = "context-menu" + (mobile ? " menu-sheet" : "");
     let scrim = null;
     const close = (event) => {
       if (event && box.contains(event.target)) return;
-      box.remove();
-      scrim?.remove();
+      if (mobile) {
+        // Phones slide the sheet away; the desktop menu just goes.
+        box.classList.add("is-leaving");
+        scrim?.classList.add("is-leaving");
+        setTimeout(() => {
+          box.remove();
+          scrim?.remove();
+        }, 220);
+      } else {
+        box.remove();
+      }
       document.removeEventListener("mousedown", close, true);
       document.removeEventListener("keydown", esc);
     };
