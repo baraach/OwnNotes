@@ -685,3 +685,65 @@ html[data-platform="ios"][data-mobile="true"] body.mobile-editor .editor-tools {
   height: calc(46px + env(safe-area-inset-top));
   padding-top: env(safe-area-inset-top);
 }
+
+/* Neutral, theme-adaptive header: no tinted bar, only glass and a hairline. */
+html[data-platform="ios"][data-mobile="true"] body,
+html[data-platform="ios"][data-mobile="true"] .app,
+html[data-platform="ios"][data-mobile="true"] .panes,
+html[data-platform="ios"][data-mobile="true"] .list,
+html[data-platform="ios"][data-mobile="true"] .sidebar { background: var(--editor); }
+html[data-platform="ios"][data-mobile="true"] .topbar {
+  background: color-mix(in srgb, var(--editor) 6%, transparent);
+  border-color: color-mix(in srgb, var(--border) 55%, transparent);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+html[data-platform="ios"][data-mobile="true"] .topbar .search-box {
+  background: color-mix(in srgb, var(--editor) 22%, transparent);
+  border-color: color-mix(in srgb, var(--border) 60%, transparent);
+}
+html[data-platform="ios"][data-mobile="true"] .list .cards {
+  gap: 8px;
+  padding: 8px 12px calc(112px + env(safe-area-inset-bottom));
+}
+html[data-platform="ios"][data-mobile="true"] .list .card {
+  min-height: 0;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+  border-radius: 18px;
+  background: var(--editor);
+}
+html[data-platform="ios"][data-mobile="true"] .list .card.active {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  background: var(--accent-soft);
+}
+html[data-platform="ios"][data-mobile="true"] .sidebar .row {
+  margin: 2px 0;
+  border-radius: 13px;
+}
+html[data-platform="ios"][data-mobile="true"] .list-head .icon,
+html[data-platform="ios"][data-mobile="true"] .editor-tools .icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+}
+html[data-platform="ios"][data-mobile="true"] .editor-dock { border-radius: 22px; }
+html[data-platform="ios"][data-mobile="true"] .modal .sheet:not(.wide) { border-radius: 24px; }
+html[data-platform="ios"][data-mobile="true"] .modal .sheet.wide {
+  border-radius: 24px !important;
+  overflow: hidden;
+}
+html[data-platform="ios"][data-mobile="true"] #settings-modal {
+  padding: calc(8px + env(safe-area-inset-top)) 8px calc(8px + env(safe-area-inset-bottom)) !important;
+}
+html[data-platform="ios"][data-mobile="true"] .settings-tabs {
+  padding-top: 12px;
+  border-radius: 24px 24px 0 0;
+}
+html[data-platform="ios"][data-mobile="true"] .settings-tabs button { border-radius: 11px; }
+html[data-platform="ios"][data-mobile="true"] .sheet input,
+html[data-platform="ios"][data-mobile="true"] .sheet select { border-radius: 14px; }
+html[data-platform="ios"][data-mobile="true"] .sheet .primary,
+html[data-platform="ios"][data-mobile="true"] .sheet .ghost { border-radius: 14px; }
+html[data-platform="ios"][data-mobile="true"] .sheet.wide > .modal-row { border-radius: 0 0 24px 24px; }
