@@ -1,0 +1,16 @@
+/* Windows: native title bar, compact in-app toolbar. */
+
+/* Platform-specific chrome and engine fallbacks.
+   macOS keeps its overlay title bar; Windows and Linux use their native one.
+   Loaded after app.css so these rules can override the shared layout. */
+
+/* ------------------------------------------------- Windows / Linux chrome */
+
+/* Those platforms keep their native title bar. The in-app bar is a compact
+   toolbar underneath it, with no traffic-light gap or grab strips. */
+html[data-platform="windows"] .topbar {
+  height: 48px;
+  padding: 0 10px 0 12px;
+}
+html[data-platform="windows"] .topbar > .traffic-space { display: none; }
+html[data-glass="on"][data-platform="windows"] .drag-strip { display: none; }

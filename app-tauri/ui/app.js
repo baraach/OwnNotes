@@ -27,6 +27,72 @@ function modKey(event) {
   return IS_MAC ? event.metaKey : event.ctrlKey;
 }
 
+const mobileQuery = window.matchMedia("(max-width: 900px)");
+
+/** Phones and tablets get one pane at a time; the desktop window doesn't. */
+function isMobile() {
+  return PLATFORM === "ios" || PLATFORM === "android" || mobileQuery.matches;
+}
+
+function closeMobileEditor() {
+  if (isMobile()) document.body.classList.remove("mobile-editor");
+}
+
+/** Show the note list again after the editor, without losing the selection. */
+function openMobileEditor() {
+  if (!isMobile()) return;
+  closeMobileNav();
+  document.body.classList.add("mobile-editor");
+}
+
+function closeMobileNav() {
+  if (!isMobile()) return;
+  document.body.classList.remove("mobile-nav");
+  const scrim = $("mobile-scrim");
+  if (scrim) scrim.hidden = true;
+  const sidebar = $("sidebar");
+  if (sidebar) {
+    sidebar.setAttribute("inert", "");
+    sidebar.setAttribute("aria-hidden", "true");
+  }
+}
+
+function toggleMobileNav() {
+  if (!isMobile()) return;
+  const sidebar = $("sidebar");
+  const scrim = $("mobile-scrim");
+  if (document.body.classList.contains("mobile-nav")) {
+    closeMobileNav();
+    return;
+  }
+  document.body.classList.add("mobile-nav");
+  if (scrim) scrim.hidden = false;
+  if (sidebar) {
+    sidebar.classList.remove("is-hidden");
+    sidebar.removeAttribute("inert");
+    sidebar.setAttribute("aria-hidden", "false");
+  }
+}
+
+function applyMobileMode() {
+  const mobile = isMobile();
+  document.documentElement.dataset.mobile = mobile ? "true" : "false";
+  if (mobile) {
+    closeMobileEditor();
+    closeMobileNav();
+    return;
+  }
+  document.body.classList.remove("mobile-editor", "mobile-nav");
+  const scrim = $("mobile-scrim");
+  if (scrim) scrim.hidden = true;
+  const sidebar = $("sidebar");
+  if (sidebar) {
+    sidebar.removeAttribute("inert");
+    sidebar.setAttribute("aria-hidden", "false");
+  }
+}
+mobileQuery.addEventListener("change", applyMobileMode);
+
 /** "⌘⇧F" → "Ctrl+Shift+F" on the platforms that use Ctrl. */
 function platformLabel(text) {
   if (IS_MAC || typeof text !== "string" || !/[⌘⇧⌥⌫]/.test(text)) return text;
@@ -433,6 +499,19 @@ async function renameSpace() {
   toast(t("Renamed to \"{name}\"", { name: to }));
 }
 
+/** Close the editor if its note disappeared; keep the drawer inert. */
+function syncMobileLayout() {
+  if (!isMobile()) return;
+  if (!currentNote()) document.body.classList.remove("mobile-editor");
+  if (!document.body.classList.contains("mobile-nav")) {
+    const sidebar = $("sidebar");
+    if (sidebar) {
+      sidebar.setAttribute("inert", "");
+      sidebar.setAttribute("aria-hidden", "true");
+    }
+  }
+}
+
 function render() {
   renderSpaces();
   renderQuick();
@@ -445,6 +524,7 @@ function render() {
   renderCards();
   paintSort();
   renderEditor();
+  syncMobileLayout();
 }
 
 function row({ glyph, tile, label, count, active, indent, onClick, onDrop }) {
@@ -1259,6 +1339,8 @@ function updateWords() {
 
 function setView(view) {
   flush();
+  closeMobileNav();
+  closeMobileEditor();
   state.view = view;
   state.search = "";
   $("search").value = "";
@@ -1317,7 +1399,10 @@ function animateSelection() {
 }
 
 function selectNote(id) {
-  if (state.current === id) return;
+  if (state.current === id) {
+    if (isMobile()) openMobileEditor();
+    return;
+  }
   flush();
   state.current = id;
   renderCards();
@@ -1329,6 +1414,7 @@ function selectNote(id) {
   cards.classList.add("selection-enter");
   clearTimeout(selectionTimer);
   selectionTimer = setTimeout(() => cards.classList.remove("selection-enter"), 240);
+  if (isMobile()) openMobileEditor();
 }
 
 function currentNote() {
@@ -1965,6 +2051,7 @@ $("search").addEventListener("input", (event) => {
   state.savedIndex = null;
   $("save-search").hidden = !state.search.trim();
   renderCards();
+  if (isMobile() && state.search.trim()) closeMobileEditor();
 });
 
 $("new-note").addEventListener("click", async () => {
@@ -1976,6 +2063,7 @@ $("new-note").addEventListener("click", async () => {
   state.current = id;
   state.view = { kind: "notebook", id: notebook };
   render();
+  if (isMobile()) openMobileEditor();
   $("title").focus();
 });
 
@@ -1994,6 +2082,10 @@ $("new-notebook").addEventListener("click", async () => {
 });
 
 $("toggle-sidebar").addEventListener("click", () => {
+  if (isMobile()) {
+    toggleMobileNav();
+    return;
+  }
   const sidebar = $("sidebar");
   const hidden = sidebar.classList.toggle("is-hidden");
   // `inert` keeps the collapsed rows out of the tab order as well.
@@ -2012,6 +2104,9 @@ $("toggle-sidebar").addEventListener("click", () => {
     sidebarTimer = setTimeout(() => sidebar.classList.remove("sidebar-enter"), 520);
   }
 });
+
+$("mobile-back").addEventListener("click", closeMobileEditor);
+$("mobile-scrim").addEventListener("click", closeMobileNav);
 
 // ------------------------------------------------------------ formatting
 
@@ -2486,7 +2581,7 @@ function applyTheme() {
 /** Windows and Linux draw the native title bar above our toolbar; ask it to
  *  follow the app theme. macOS keeps its own traffic-light appearance. */
 function syncWindowTheme() {
-  if (IS_MAC) return;
+  if (IS_MAC || PLATFORM === "ios" || PLATFORM === "android") return;
   try {
     const win = window.__TAURI__?.window?.getCurrentWindow?.();
     if (!win || typeof win.setTheme !== "function") return;
@@ -4089,6 +4184,10 @@ function applyPaneWidths() {
 /** Keep each grip over the gap between the panes it resizes. */
 function positionGrips() {
   if (document.documentElement.dataset.glass !== "on") return;
+  if (isMobile()) {
+    for (const grip of document.querySelectorAll(".pane-grip")) grip.style.display = "none";
+    return;
+  }
   const panes = document.querySelector(".panes");
   const sidebar = $("sidebar");
   const list = $("list-pane");
@@ -4251,6 +4350,7 @@ const modalHider = new MutationObserver((records) => {
 modalHider.observe(document.body, { attributes: true, attributeFilter: ["hidden"], subtree: true });
 
 applyPlatformLabels();
+applyMobileMode();
 
 // ------------------------------------------------------------ start
 

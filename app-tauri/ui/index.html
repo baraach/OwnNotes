@@ -2,20 +2,17 @@
 <html lang="en" data-glass="on">
   <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>OwnNotes</title>
-    <script>
-      // Decide once, before the first paint: which keyboard modifier and
-      // window chrome this platform uses.
-      (() => {
-        const ua = navigator.userAgent || "";
-        const p = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "";
-        const win = /Windows NT|Win32|Win64|Windows/i.test(ua) || /Win/i.test(p);
-        const linux = !win && (/Linux/i.test(ua) || /Linux/i.test(p));
-        const mac = !win && !linux && (/Macintosh|Mac OS X/i.test(ua) || /Mac/i.test(p));
-        document.documentElement.dataset.platform = mac ? "mac" : win ? "windows" : "linux";
-      })();
-    </script>
-    <link rel="stylesheet" href="app.css?v=18" />
+    <script src="platform.js?v=1"></script>
+    <link rel="stylesheet" href="app.css?v=20" />
+    <link rel="stylesheet" href="platform.css?v=2" />
+    <link rel="stylesheet" href="mobile.css?v=2" />
+    <link rel="stylesheet" href="platform/macos.css?v=1" />
+    <link rel="stylesheet" href="platform/windows.css?v=1" />
+    <link rel="stylesheet" href="platform/linux.css?v=1" />
+    <link rel="stylesheet" href="platform/ios.css?v=1" />
+    <link rel="stylesheet" href="platform/android.css?v=1" />
   </head>
   <body>
     <div class="app">
@@ -55,6 +52,7 @@
           <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
         </button>
       </header>
+      <button class="mobile-scrim" id="mobile-scrim" type="button" aria-label="Close menu" hidden></button>
 
       <main class="panes">
         <nav class="sidebar" id="sidebar">
@@ -107,6 +105,9 @@
 
         <section class="editor" id="editor-pane">
           <div class="editor-tools pane-head">
+            <button class="icon mobile-back" id="mobile-back" title="All notes" aria-label="Back to notes">
+              <svg viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></svg>
+            </button>
             <button class="icon" id="pin" title="Pin"><svg viewBox="0 0 24 24"><path d="M12 16v5"/><path d="M9 3.5h6l-1 5.5 3 3v2H7v-2l3-3z"/></svg></button>
             <button class="icon" id="star" title="Favorite"><svg viewBox="0 0 24 24"><path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z"/></svg></button>
             <button class="icon" id="export" title="Export (⌘E)"><svg viewBox="0 0 24 24"><path d="M14 4h6v6"/><path d="M20 4 11 13"/><path d="M18 14v4.5A1.5 1.5 0 0 1 16.5 20h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10"/></svg></button>
@@ -533,7 +534,7 @@
     <script src="i18n.fr.js?v=14"></script>
     <script src="i18n.es.js?v=14"></script>
     <script src="dialogs.js?v=16"></script>
-    <script src="app.js?v=20"></script>
+    <script src="app.js?v=21"></script>
     <script src="editor.js?v=11"></script>
   </body>
 </html>

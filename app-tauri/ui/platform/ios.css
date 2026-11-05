@@ -1,0 +1,5 @@
+/* iOS: safe-area padding is applied in mobile.css; keep iOS-only corrections
+   here so they cannot affect Android. */
+
+html[data-platform="ios"] { -webkit-tap-highlight-color: transparent; }
+html[data-platform="ios"] .card { -webkit-touch-callout: none; }

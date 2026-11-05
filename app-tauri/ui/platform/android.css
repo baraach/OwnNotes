@@ -1,0 +1,17 @@
+/* Android: the system status bar draws over the webview, so the toolbar and
+   the drawer need its height explicitly. */
+
+html[data-platform="android"] { -webkit-tap-highlight-color: transparent; }
+/* Android draws its own status bar over the webview. Give the toolbar and
+   the drawer the status-bar height so the controls stay tappable. */
+html[data-platform="android"] .topbar {
+  height: calc(48px + 32px);
+  padding-top: 32px;
+}
+html[data-platform="android"] .sidebar,
+html[data-platform="android"] .mobile-scrim {
+  top: calc(48px + 32px);
+}
+html[data-platform="android"] .modal { padding-top: calc(12px + 32px); }
+html[data-platform="android"] #settings-modal { padding-top: 0; }
+html[data-platform="android"] .settings-tabs { padding-top: calc(8px + 32px); }

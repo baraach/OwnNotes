@@ -1,0 +1,24 @@
+{
+  "app": {
+    "windows": [
+      {
+        "title": "OwnNotes",
+        "width": 1240,
+        "height": 780,
+        "minWidth": 960,
+        "minHeight": 600,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": {
+          "x": 14,
+          "y": 32
+        }
+      }
+    ]
+  },
+  "bundle": {
+    "macOS": {
+      "minimumSystemVersion": "11.0"
+    }
+  }
+}

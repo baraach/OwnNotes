@@ -1,0 +1,5 @@
+/* macOS: the overlay title bar and traffic lights are configured in
+   tauri.macos.conf.json; the base layout is in app.css. Add macOS-only
+   corrections here. */
+
+html[data-platform="mac"] { -webkit-tap-highlight-color: transparent; }

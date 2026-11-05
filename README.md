@@ -120,6 +120,17 @@ cd app-tauri/src-tauri && cargo tauri build
 # → target/release/bundle/macos/OwnNotes.app and OwnNotes_1.0.0_*.dmg
 ```
 
+Mobile builds use the same shared Rust core and interface:
+
+```bash
+cd app-tauri/src-tauri
+cargo tauri ios build --debug --target aarch64-sim --no-sign
+cargo tauri android build --debug --target aarch64 --apk
+```
+
+The iOS and Android toolchains, sandbox data locations and per-platform
+file layout are described in [docs/PLATFORMS.md](docs/PLATFORMS.md).
+
 ## 🧪 Tests
 
 ```bash
@@ -132,10 +143,18 @@ server to exercise attachment sync, and tests for every importer.
 ## 🗂 Project layout
 
 ```
-core/                  notes, storage, sync, crypto — no UI at all
-app-tauri/src-tauri/   the app: Tauri window, commands, filesystem access
-app-tauri/ui/          the interface: HTML, CSS, JavaScript (no build step)
+core/                         notes, storage, sync, crypto — no UI at all
+app-tauri/src-tauri/          shared Tauri entry, state and commands
+app-tauri/src-tauri/src/platform/
+                              macOS, Windows, Linux, iOS, Android layers
+app-tauri/ui/                 shared interface (no build step)
+app-tauri/ui/platform/        per-platform CSS corrections
+app-tauri/src-tauri/gen/apple/    Xcode project (iOS)
+app-tauri/src-tauri/gen/android/  Gradle project (Android)
 ```
+
+See [docs/PLATFORMS.md](docs/PLATFORMS.md) for what belongs where and how to
+build each target.
 
 ## 🧭 How a note is stored
 
