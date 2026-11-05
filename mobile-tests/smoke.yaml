@@ -21,7 +21,14 @@ appId: app.ownnotes.desktop
 - takeScreenshot: mobile-editor
 - tapOn: "Back to notes"
 - assertVisible: "All Notes"
-- tapOn: "Settings"
+- tapOn:
+    text: "^Browse$"
+- assertVisible: "Notebooks"
+- tapOn:
+    text: ".*All Notes.*"
+- assertVisible: "All Notes"
+- tapOn:
+    text: "^Settings$"
 - assertVisible: "Sync & Storage"
 - takeScreenshot: mobile-settings
 - tapOn: "Close"

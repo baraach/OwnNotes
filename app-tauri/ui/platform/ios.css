@@ -1,5 +1,687 @@
-/* iOS: safe-area padding is applied in mobile.css; keep iOS-only corrections
+/* Phone and tablet layout. Everything here is scoped to html[data-mobile],
+   so desktop windows never match. Loaded after app.css and platform.css. */
+
+/* ------------------------------------------------------------ mobile */
+
+
+/* A phone gets one pane at a time: the note list, or the editor. The
+   sidebar becomes a drawer. The desktop rules stay above this block and
+   are untouched because data-mobile is false there. */
+html[data-platform="ios"][data-mobile="true"] .topbar {
+  height: calc(48px + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) 10px 0;
+  gap: 6px;
+}
+html[data-platform="ios"][data-mobile="true"] .topbar > :is(.traffic-space, .drag-layer, .drag-strip, .spacer),
+html[data-platform="ios"][data-mobile="true"] .topbar > #undo,
+html[data-platform="ios"][data-mobile="true"] .topbar > #redo,
+html[data-platform="ios"][data-mobile="true"] .topbar > #sync-pill,
+html[data-platform="ios"][data-mobile="true"] .topbar > #sticky { display: none; }
+html[data-platform="ios"][data-mobile="true"] .topbar .search-box {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+}
+html[data-platform="ios"][data-mobile="true"] .topbar #new-note {
+  flex: 0 0 auto;
+  height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+html[data-platform="ios"][data-mobile="true"] #lock,
+html[data-platform="ios"][data-mobile="true"] #open-settings,
+html[data-platform="ios"][data-mobile="true"] #sync-now { flex: 0 0 auto; }
+
+html[data-platform="ios"][data-mobile="true"] .panes {
+  display: block;
+  padding: 0;
+  gap: 0;
+  position: relative;
+}
+html[data-platform="ios"][data-mobile="true"] .list {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  flex: 1 1 auto;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+html[data-platform="ios"][data-mobile="true"] .editor {
+  display: none;
+  width: 100%;
+  height: 100%;
+  flex: 1 1 auto;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+html[data-platform="ios"][data-mobile="true"] body.mobile-editor .list { display: none; }
+html[data-platform="ios"][data-mobile="true"] body.mobile-editor .editor { display: flex; }
+
+html[data-platform="ios"][data-mobile="true"] .list-head,
+html[data-platform="ios"][data-mobile="true"] .editor-tools {
+  height: 46px;
+  padding: 0 8px 0 14px;
+}
+html[data-platform="ios"][data-mobile="true"] .cards { padding: 6px 10px calc(22px + env(safe-area-inset-bottom)); }
+html[data-platform="ios"][data-mobile="true"] .card { min-height: 64px; padding: 13px 12px; }
+html[data-platform="ios"][data-mobile="true"] .row { padding: 10px; font-size: 15px; }
+html[data-platform="ios"][data-mobile="true"] .section-title { padding-top: 12px; padding-bottom: 6px; }
+
+/* Drawer */
+html[data-platform="ios"][data-mobile="true"] .sidebar {
+  display: flex;
+  position: fixed;
+  top: calc(48px + env(safe-area-inset-top));
+  bottom: 0;
+  left: 0;
+  width: min(86vw, 330px);
+  height: auto;
+  flex: 0 0 auto;
+  padding: 0;
+  overflow: hidden;
+  z-index: 60;
+  border-radius: 0 18px 18px 0;
+  background: var(--sidebar);
+  box-shadow: 18px 0 50px rgba(0, 0, 0, 0.22);
+  transform: translateX(-102%);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: transform 260ms var(--ease), opacity 180ms var(--ease), visibility 260ms;
+}
+html[data-platform="ios"][data-mobile="true"] .sidebar.is-hidden {
+  width: min(86vw, 330px);
+  flex-basis: auto;
+  opacity: 0;
+  transform: translateX(-102%);
+  pointer-events: none;
+}
+html[data-platform="ios"][data-mobile="true"] body.mobile-nav .sidebar,
+html[data-platform="ios"][data-mobile="true"] body.mobile-nav .sidebar.is-hidden {
+  width: min(86vw, 330px);
+  flex-basis: auto;
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  pointer-events: auto;
+}
+html[data-platform="ios"][data-mobile="true"] .sidebar-scroll {
+  padding: 8px 10px calc(24px + env(safe-area-inset-bottom));
+}
+html[data-platform="ios"][data-mobile="true"] .mobile-scrim {
+  display: block;
+  position: fixed;
+  top: calc(48px + env(safe-area-inset-top));
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 55;
+  border: 0;
+  padding: 0;
+  background: rgba(15, 20, 28, 0.3);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms var(--ease);
+}
+html[data-platform="ios"][data-mobile="true"] body.mobile-nav .mobile-scrim {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Editor */
+html[data-platform="ios"][data-mobile="true"] .editor-tools { padding-left: 8px; gap: 2px; }
+html[data-platform="ios"][data-mobile="true"] .mobile-back { display: grid; margin-inline-end: 4px; }
+html[data-platform="ios"][data-mobile="true"] #export,
+html[data-platform="ios"][data-mobile="true"] #history,
+html[data-platform="ios"][data-mobile="true"] #focus,
+html[data-platform="ios"][data-mobile="true"] #info,
+html[data-platform="ios"][data-mobile="true"] #print { display: none !important; }
+html[data-platform="ios"][data-mobile="true"] .title {
+  font-size: 26px;
+  padding: 2px 16px 0;
+}
+html[data-platform="ios"][data-mobile="true"] .body {
+  padding: 6px 16px calc(116px + env(safe-area-inset-bottom));
+  font-size: 16px;
+  line-height: 1.55;
+  overscroll-behavior: contain;
+}
+html[data-platform="ios"][data-mobile="true"] .editor-dock {
+  left: 8px;
+  right: 8px;
+  bottom: calc(8px + env(safe-area-inset-bottom));
+  border-radius: 16px;
+}
+html[data-platform="ios"][data-mobile="true"] .editor-dock .format-bar {
+  padding: 5px 6px 0;
+}
+html[data-platform="ios"][data-mobile="true"] .editor-foot {
+  padding: 2px 10px calc(6px + env(safe-area-inset-bottom));
+}
+html[data-platform="ios"][data-mobile="true"] .icon { width: 34px; height: 34px; }
+
+/* Full-screen settings on a phone. */
+html[data-platform="ios"][data-mobile="true"] .modal { padding: 12px; }
+html[data-platform="ios"][data-mobile="true"] #settings-modal { padding: 0; align-items: stretch; justify-content: stretch; }
+html[data-platform="ios"][data-mobile="true"] .modal .sheet.wide {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  border-radius: 0;
+}
+html[data-platform="ios"][data-mobile="true"] .settings-body {
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  max-height: none;
+}
+html[data-platform="ios"][data-mobile="true"] .settings-tabs {
+  width: auto;
+  flex: 0 0 auto;
+  flex-direction: row;
+  overflow-x: auto;
+  padding: 8px;
+  border-right: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--editor);
+}
+html[data-platform="ios"][data-mobile="true"] .settings-tabs button { white-space: nowrap; padding: 8px 10px; }
+html[data-platform="ios"][data-mobile="true"] .settings-pages {
+  padding: 16px;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom));
+}
+html[data-platform="ios"][data-mobile="true"] .sheet.wide > .modal-row {
+  padding: 10px 16px calc(14px + env(safe-area-inset-bottom));
+  background: var(--editor);
+}
+html[data-platform="ios"][data-mobile="true"] .modal .sheet:not(.wide) {
+  width: calc(100vw - 24px);
+  max-height: 86vh;
+}
+html[data-platform="ios"][data-mobile="true"] input,
+html[data-platform="ios"][data-mobile="true"] select,
+html[data-platform="ios"][data-mobile="true"] textarea { font-size: 16px; }
+html[data-platform="ios"][data-mobile="true"] body { overscroll-behavior: none; }
+
+html[data-platform="ios"][data-mobile="true"] .pane-grip { display: none !important; }
+
+html[data-platform="ios"][data-mobile="true"] .modal .sheet.wide { border-radius: 0 !important; }
+html[data-platform="ios"][data-mobile="true"] .settings-tabs { padding-top: calc(8px + env(safe-area-inset-top)); }
+html[data-platform="ios"][data-mobile="true"] .sync-actions { flex-wrap: wrap; }
+html[data-platform="ios"][data-mobile="true"] #s-connected {
+  flex-basis: 100%;
+  margin-top: 6px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+html[data-platform="ios"][data-mobile="true"] .modal .sheet:not(.wide) {
+  margin-top: calc(12px + env(safe-area-inset-top));
+}
+
+/* Features that need a desktop file picker or window. */
+html[data-platform="ios"][data-mobile="true"] .desktop-only { display: none !important; }
+
+/* ------------------------------------------------------ bottom navigation */
+
+
+html[data-platform="ios"][data-mobile="true"] .mobile-only { display: block; }
+html[data-platform="ios"][data-mobile="true"] .mobile-tabs {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: stretch;
+  z-index: 40;
+  height: calc(58px + env(safe-area-inset-bottom));
+  padding: 0 8px env(safe-area-inset-bottom);
+  border-top: 1px solid var(--border);
+  background: var(--editor);
+}
+html[data-platform="ios"][data-mobile="true"] .mobile-tabs button {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 0;
+  padding: 4px 2px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--faint);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+html[data-platform="ios"][data-mobile="true"] .mobile-tabs button.on { color: var(--accent); }
+html[data-platform="ios"][data-mobile="true"] .tab-glyph {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 26px;
+  border-radius: 13px;
+}
+html[data-platform="ios"][data-mobile="true"] .tab-glyph svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+html[data-platform="ios"][data-mobile="true"] body.mobile-editor .mobile-tabs { display: none; }
+
+/* The top bar is only search and sync now; primary actions live at the
+   bottom of the screen. */
+html[data-platform="ios"][data-mobile="true"] .topbar > #toggle-sidebar,
+html[data-platform="ios"][data-mobile="true"] .topbar > #new-note,
+html[data-platform="ios"][data-mobile="true"] .topbar > #lock,
+html[data-platform="ios"][data-mobile="true"] .topbar > #open-settings { display: none !important; }
+
+/* Browse is a sheet from the bottom, not a drawer from the side. */
+html[data-platform="ios"][data-mobile="true"] .sidebar {
+  top: auto;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: auto;
+  max-height: min(78vh, 640px);
+  height: auto;
+  flex: 0 0 auto;
+  border-radius: 22px 22px 0 0;
+  transform: translateY(105%);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  box-shadow: 0 -22px 60px rgba(0, 0, 0, 0.25);
+}
+html[data-platform="ios"][data-mobile="true"] .sidebar.is-hidden {
+  width: auto;
+  flex-basis: auto;
+  opacity: 0;
+  transform: translateY(105%);
+  pointer-events: none;
+}
+html[data-platform="ios"][data-mobile="true"] body.mobile-nav .sidebar,
+html[data-platform="ios"][data-mobile="true"] body.mobile-nav .sidebar.is-hidden {
+  width: auto;
+  flex-basis: auto;
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  pointer-events: auto;
+}
+html[data-platform="ios"][data-mobile="true"] .sidebar::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  width: 38px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--border);
+  transform: translateX(-50%);
+  z-index: 3;
+}
+html[data-platform="ios"][data-mobile="true"] .sidebar .pane-head { padding-top: 20px; }
+html[data-platform="ios"][data-mobile="true"] .sidebar-scroll { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+html[data-platform="ios"][data-mobile="true"] .mobile-scrim {
+  top: 0;
+  bottom: 0;
+  z-index: 45;
+}
+
+/* Context menus become native-style actions sheets. */
+.menu-sheet {
+  position: fixed;
+  left: 8px;
+  right: 8px;
+  top: auto;
+  bottom: calc(8px + env(safe-area-inset-bottom));
+  max-height: 70vh;
+  overflow-y: auto;
+  z-index: 90;
+  border-radius: 20px;
+  animation: mobile-sheet-in 220ms var(--ease);
+}
+.menu-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 89;
+  background: rgba(10, 14, 20, 0.28);
+  animation: mobile-fade-in 180ms ease-out;
+}
+.menu-cancel {
+  width: 100%;
+  margin-top: 6px;
+  padding: 12px;
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 14px 14px;
+  color: var(--dim);
+  font-weight: 500;
+}
+@keyframes mobile-sheet-in {
+  from { opacity: 0; transform: translateY(28px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes mobile-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Browse is a destination, not a sheet: the tabs stay reachable. */
+html[data-platform="ios"][data-mobile="true"] { --mobile-tabs-h: 58px; }
+html[data-platform="ios"][data-mobile="true"] .sidebar {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  display: none;
+  flex: 1 1 auto;
+  border-radius: 0;
+  transform: none;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  box-shadow: none;
+  z-index: 1;
+}
+html[data-platform="ios"][data-mobile="true"] body.mobile-nav .sidebar,
+html[data-platform="ios"][data-mobile="true"] body.mobile-nav .sidebar.is-hidden {
+  display: flex;
+  width: 100%;
+  flex-basis: auto;
+  transform: none;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  animation: mobile-view-in 180ms var(--ease);
+}
+html[data-platform="ios"][data-mobile="true"] .sidebar.is-hidden {
+  display: none;
+  width: 100%;
+  flex-basis: auto;
+  transform: none;
+  opacity: 1;
+}
+html[data-platform="ios"][data-mobile="true"] .sidebar::before { content: none; }
+html[data-platform="ios"][data-mobile="true"] .sidebar .pane-head { padding-top: 8px; }
+html[data-platform="ios"][data-mobile="true"] body.mobile-nav .list,
+html[data-platform="ios"][data-mobile="true"] body.mobile-nav .editor { display: none; }
+html[data-platform="ios"][data-mobile="true"] .mobile-scrim { display: none !important; }
+html[data-platform="ios"][data-mobile="true"] body.mobile-search .search-box {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+/* New note is an action, not a destination: a compose button above the tabs. */
+html[data-platform="ios"][data-mobile="true"] .mobile-compose {
+  display: grid;
+  place-items: center;
+  position: fixed;
+  right: 16px;
+  bottom: calc(var(--mobile-tabs-h) + env(safe-area-inset-bottom) + 14px);
+  z-index: 38;
+  width: 52px;
+  height: 52px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+}
+html[data-platform="ios"][data-mobile="true"] .mobile-compose svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+html[data-platform="ios"][data-mobile="true"] body.mobile-editor @keyframes mobile-view-in {
+  from { opacity: 0; transform: translateX(12px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* iOS safe-area corrections; the complete phone design lives in this file.
    here so they cannot affect Android. */
 
 html[data-platform="ios"] { -webkit-tap-highlight-color: transparent; }
 html[data-platform="ios"] .card { -webkit-touch-callout: none; }
+
+/* iOS: compact navigation bar and a translucent bottom tab bar. */
+html[data-platform="ios"] .topbar {
+  height: calc(44px + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
+}
+html[data-platform="ios"] .topbar .search-box {
+  height: 32px;
+  border-radius: 10px;
+}
+html[data-platform="ios"] .mobile-tabs {
+  height: calc(49px + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  background: color-mix(in srgb, var(--editor) 80%, transparent);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  border-top: 0.5px solid color-mix(in srgb, var(--border) 75%, transparent);
+  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.35) inset;
+}
+html[data-platform="ios"] .mobile-tabs button {
+  gap: 2px;
+  font-size: 10px;
+  font-weight: 500;
+}
+html[data-platform="ios"] .tab-glyph { width: 30px; height: 25px; }
+html[data-platform="ios"] .tab-glyph svg { width: 24px; height: 24px; }
+html[data-platform="ios"] .sidebar {
+  background: color-mix(in srgb, var(--editor) 94%, transparent);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  backdrop-filter: blur(30px) saturate(180%);
+}
+html[data-platform="ios"] .context-menu.menu-sheet { border-radius: 20px; }
+
+html[data-platform="ios"][data-mobile="true"] { --mobile-tabs-h: 49px; }
+html[data-platform="ios"] .mobile-compose {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+}
+html[data-platform="ios"] .sidebar {
+  background: var(--editor);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+
+/* Modern floating iOS bar: a glass capsule with an integrated compose action. */
+html[data-platform="ios"][data-mobile="true"] { --mobile-tabs-h: 62px; }
+html[data-platform="ios"][data-mobile="true"] .mobile-tabs {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(10px + env(safe-area-inset-bottom));
+  height: 62px;
+  padding: 0 5px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 31px;
+  background: color-mix(in srgb, var(--editor) 72%, transparent);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  backdrop-filter: blur(28px) saturate(190%);
+  box-shadow:
+    0 14px 40px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  z-index: 45;
+}
+html[data-platform="ios"][data-mobile="true"] .mobile-tabs button {
+  gap: 0;
+  border-radius: 26px;
+  font-size: 9px;
+}
+html[data-platform="ios"][data-mobile="true"] .mobile-tabs .tab-label { display: none; }
+html[data-platform="ios"][data-mobile="true"] .mobile-tabs .tab-glyph { width: 30px; height: 30px; }
+html[data-platform="ios"][data-mobile="true"] .mobile-tabs button.on .tab-glyph {
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
+}
+html[data-platform="ios"][data-mobile="true"] .mobile-tabs .tab-compose { display: flex; }
+html[data-platform="ios"][data-mobile="true"] .mobile-tabs .tab-compose .tab-glyph {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+html[data-platform="ios"][data-mobile="true"] .mobile-tabs .tab-compose .tab-glyph svg {
+  width: 22px;
+  height: 22px;
+  stroke-width: 2.1;
+}
+html[data-platform="ios"][data-mobile="true"] .mobile-compose { display: none !important; }
+html[data-platform="ios"][data-mobile="true"] .list .cards,
+html[data-platform="ios"][data-mobile="true"] .sidebar-scroll {
+  padding-bottom: calc(100px + env(safe-area-inset-bottom));
+}
+
+
+/* Final iOS bar: floating material capsule, icon + label on every item. */
+html[data-platform="ios"][data-mobile="true"] { --mobile-tabs-h: 64px; }
+html[data-platform="ios"][data-mobile="true"] .mobile-tabs {
+  height: 64px;
+  padding-bottom: 0;
+  border-radius: 32px;
+  border-color: color-mix(in srgb, var(--border) 55%, transparent);
+  background: color-mix(in srgb, var(--editor) 66%, transparent);
+  box-shadow:
+    0 12px 36px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.42);
+}
+html[data-platform="ios"][data-mobile="true"] .mobile-tabs button {
+  gap: 2px;
+  border-radius: 26px;
+  font-size: 10px;
+}
+html[data-platform="ios"][data-mobile="true"] .mobile-tabs .tab-label { display: block; }
+html[data-platform="ios"][data-mobile="true"] .mobile-tabs .tab-glyph { width: 28px; height: 26px; }
+html[data-platform="ios"][data-mobile="true"] .mobile-tabs .tab-glyph svg { width: 22px; height: 22px; }
+html[data-platform="ios"][data-mobile="true"] .mobile-tabs button.on .tab-glyph {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+html[data-platform="ios"][data-mobile="true"] .mobile-compose {
+  display: grid !important;
+  right: 18px;
+  bottom: calc(64px + env(safe-area-inset-bottom) + 28px);
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.22);
+}
+html[data-platform="ios"][data-mobile="true"] .list .cards,
+html[data-platform="ios"][data-mobile="true"] .sidebar-scroll {
+  padding-bottom: calc(112px + env(safe-area-inset-bottom));
+}
+
+/* Final iOS chrome: compact navigation bar and native search field. */
+html[data-platform="ios"][data-mobile="true"] .topbar {
+  height: calc(44px + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) 10px 0;
+}
+html[data-platform="ios"][data-mobile="true"] .topbar .search-box {
+  height: 32px;
+  border-radius: 10px;
+}
+
+
+/* Liquid-glass iOS chrome: a floating control bar above the content. */
+html[data-platform="ios"][data-mobile="true"] .topbar {
+  position: relative;
+  height: 52px;
+  margin: calc(8px + env(safe-area-inset-top)) 10px 4px;
+  padding: 0 7px;
+  gap: 5px;
+  border: 1px solid color-mix(in srgb, #fff 58%, transparent);
+  border-radius: 26px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--editor) 70%, transparent), color-mix(in srgb, var(--editor) 54%, transparent));
+  -webkit-backdrop-filter: blur(30px) saturate(190%);
+  backdrop-filter: blur(30px) saturate(190%);
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.68),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.18);
+  z-index: 42;
+}
+html[data-platform="ios"][data-mobile="true"] .topbar::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.28), transparent 42%);
+  pointer-events: none;
+  z-index: 0;
+}
+html[data-platform="ios"][data-mobile="true"] .topbar > * { position: relative; z-index: 1; }
+html[data-platform="ios"][data-mobile="true"] .topbar .search-box {
+  height: 38px;
+  border: 1px solid color-mix(in srgb, #fff 42%, transparent);
+  border-radius: 19px;
+  background: color-mix(in srgb, var(--editor) 36%, transparent);
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.40);
+}
+html[data-platform="ios"][data-mobile="true"] .topbar .search-box input { background: transparent; }
+html[data-platform="ios"][data-mobile="true"] .topbar .icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--editor) 32%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+html[data-platform="ios"][data-mobile="true"] .topbar .mobile-top-action {
+  display: grid;
+  color: var(--accent);
+}
+html[data-platform="ios"][data-mobile="true"] .mobile-compose { display: none !important; }
+html[data-platform="ios"][data-mobile="true"] .list-head {
+  height: 58px;
+  padding: 0 16px;
+  background: transparent;
+}
+html[data-platform="ios"][data-mobile="true"] #list-title {
+  font-size: 27px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+html[data-platform="ios"][data-mobile="true"] .list .cards,
+html[data-platform="ios"][data-mobile="true"] .sidebar-scroll {
+  padding-bottom: calc(98px + env(safe-area-inset-bottom));
+}
+html[data-platform="ios"][data-mobile="true"] .mobile-tabs button.on .tab-glyph {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+html[data-platform="ios"][data-mobile="true"] .mobile-tabs button.on .tab-glyph {
+  background: transparent;
+}
+
+
+/* On phones the welcome tour talks about touch, not keyboard shortcuts. */
+html[data-platform="ios"][data-mobile="true"] .tour-desktop { display: none; }
+html[data-platform="ios"][data-mobile="true"] .tour-mobile { display: block; }
+
+
+/* Dialogs sit above the floating navigation and compose action. */
+html[data-platform="ios"][data-mobile="true"] .modal { z-index: 100; }
+
+/* The editor uses its own action row instead of a search bar. */
+html[data-platform="ios"][data-mobile="true"] body.mobile-editor .topbar { display: none; }
+html[data-platform="ios"][data-mobile="true"] body.mobile-editor .editor-tools {
+  height: calc(46px + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
+}

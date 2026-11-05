@@ -5,14 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>OwnNotes</title>
     <script src="platform.js?v=1"></script>
-    <link rel="stylesheet" href="app.css?v=20" />
+    <link rel="stylesheet" href="app.css?v=23" />
     <link rel="stylesheet" href="platform.css?v=2" />
-    <link rel="stylesheet" href="mobile.css?v=3" />
-    <link rel="stylesheet" href="platform/macos.css?v=1" />
+        <link rel="stylesheet" href="platform/macos.css?v=1" />
     <link rel="stylesheet" href="platform/windows.css?v=1" />
     <link rel="stylesheet" href="platform/linux.css?v=1" />
-    <link rel="stylesheet" href="platform/ios.css?v=1" />
-    <link rel="stylesheet" href="platform/android.css?v=1" />
+    <link rel="stylesheet" href="platform/ios.css?v=12" />
+    <link rel="stylesheet" href="platform/android.css?v=10" />
   </head>
   <body>
     <div class="app">
@@ -37,6 +36,9 @@
           <button class="search-scope" id="save-search" title="Save this search" hidden>＋</button>
         </label>
         <span class="spacer" data-tauri-drag-region></span>
+        <button class="icon mobile-top-action" id="mobile-new-note" title="New note" aria-label="New note">
+          <svg viewBox="0 0 24 24"><path d="M4 20h4.2L19 9.2a2.5 2.5 0 0 0-3.5-3.5L4.7 16.5z"/><path d="m14 6.8 3.2 3.2"/></svg>
+        </button>
         <button class="icon" id="sync-now" title="Sync Notes">
           <svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-13.7-5.6L4 7.6"/><path d="M4 4v3.6h3.6"/><path d="M4 13a8 8 0 0 0 13.7 5.6L20 16.4"/><path d="M20 20v-3.6h-3.6"/></svg>
         </button>
@@ -75,6 +77,12 @@
             <div class="nav" id="notebooks" data-no-i18n></div>
             <div class="nav links" id="templates-row"></div>
             <div class="nav links" id="trash-row"></div>
+            <div class="nav links mobile-only">
+              <button class="row" id="mobile-lock">
+                <span class="glyph"><svg viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg></span>
+                <span class="label">Lock app</span>
+              </button>
+            </div>
             <div class="section-title" id="saved-title" hidden>
               <svg class="chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
               <span>Saved searches</span>
@@ -176,6 +184,27 @@
         <div class="pane-grip" data-pane="list" role="separator" aria-orientation="vertical" aria-label="Resize note list" tabindex="0"></div>
         <div class="pane-grip" data-pane="info" role="separator" aria-orientation="vertical" aria-label="Resize info panel" tabindex="0"></div>
       </main>
+      <nav class="mobile-tabs" id="mobile-tabs" aria-label="Main navigation">
+        <button type="button" data-mobile-tab="notes" class="on" aria-label="Notes">
+          <span class="tab-glyph"><svg viewBox="0 0 24 24"><path d="M6 4.5h9l3 3v12H6z"/><path d="M15 4.5v3h3"/><path d="M9 11h6"/><path d="M9 15h6"/></svg></span>
+          <span class="tab-label">Notes</span>
+        </button>
+        <button type="button" data-mobile-tab="browse" aria-label="Browse">
+          <span class="tab-glyph"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/></svg></span>
+          <span class="tab-label">Browse</span>
+        </button>
+        <button type="button" data-mobile-tab="search" aria-label="Search">
+          <span class="tab-glyph"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg></span>
+          <span class="tab-label">Search</span>
+        </button>
+        <button type="button" data-mobile-tab="settings" aria-label="Settings">
+          <span class="tab-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></span>
+          <span class="tab-label">Settings</span>
+        </button>
+      </nav>
+      <button type="button" class="mobile-compose" id="mobile-compose" aria-label="New note">
+        <svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+      </button>
     </div>
     <div class="modal" id="settings-modal" hidden>
       <div class="sheet wide">
@@ -428,10 +457,15 @@
       <div class="sheet tour-sheet">
         <h3>Welcome to OwnNotes</h3>
         <p class="hint">Your notes are files in a folder you own. Three things worth knowing:</p>
-        <ol class="tour-list">
+        <ol class="tour-list tour-desktop">
           <li><b>Write.</b> Press <kbd>⌘N</kbd>, type, and it saves itself.</li>
           <li><b>Sync.</b> Point Settings → Sync &amp; Storage at any WebDAV folder — Nextcloud, Koofr, a NAS. Nothing leaves your control.</li>
           <li><b>Find.</b> <kbd>⌘K</kbd> jumps to a note, <kbd>⌘F</kbd> searches inside one.</li>
+        </ol>
+        <ol class="tour-list tour-mobile">
+          <li><b>Write.</b> Tap + to start a note; it saves itself.</li>
+          <li><b>Sync.</b> Point Settings → Sync &amp; Storage at any WebDAV folder — Nextcloud, Koofr, a NAS. Nothing leaves your control.</li>
+          <li><b>Find.</b> Tap Search to find a note by title or text.</li>
         </ol>
         <div class="modal-row">
           <button class="ghost" id="tour-later">Later</button>
@@ -527,14 +561,14 @@
 
     <div class="toast" id="toast" hidden></div>
     <script src="i18n.js?v=14"></script>
-    <script src="i18n.ar.js?v=14"></script>
-    <script src="i18n.tr.js?v=14"></script>
-    <script src="i18n.de.js?v=14"></script>
-    <script src="i18n.pl.js?v=14"></script>
-    <script src="i18n.fr.js?v=14"></script>
-    <script src="i18n.es.js?v=14"></script>
-    <script src="dialogs.js?v=16"></script>
-    <script src="app.js?v=24"></script>
+    <script src="i18n.ar.js?v=15"></script>
+    <script src="i18n.tr.js?v=15"></script>
+    <script src="i18n.de.js?v=15"></script>
+    <script src="i18n.pl.js?v=15"></script>
+    <script src="i18n.fr.js?v=15"></script>
+    <script src="i18n.es.js?v=15"></script>
+    <script src="dialogs.js?v=17"></script>
+    <script src="app.js?v=32"></script>
     <script src="editor.js?v=11"></script>
   </body>
 </html>

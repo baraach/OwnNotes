@@ -36,8 +36,20 @@ function isMobile() {
   return PLATFORM === "ios" || PLATFORM === "android" || mobileQuery.matches;
 }
 
+function syncMobileTabs() {
+  const active = document.body.classList.contains("mobile-nav")
+    ? "browse"
+    : document.body.classList.contains("mobile-search")
+      ? "search"
+      : "notes";
+  for (const tab of document.querySelectorAll("[data-mobile-tab]")) {
+    tab.classList.toggle("on", tab.dataset.mobileTab === active);
+  }
+}
+
 function closeMobileEditor() {
   if (isMobile()) document.body.classList.remove("mobile-editor");
+  syncMobileTabs();
   syncMobileBack();
 }
 
@@ -45,7 +57,9 @@ function closeMobileEditor() {
 function openMobileEditor() {
   if (!isMobile()) return;
   closeMobileNav();
+  $("search").blur();
   document.body.classList.add("mobile-editor");
+  syncMobileTabs();
   syncMobileBack();
 }
 
@@ -59,6 +73,7 @@ function closeMobileNav() {
     sidebar.setAttribute("inert", "");
     sidebar.setAttribute("aria-hidden", "true");
   }
+  syncMobileTabs();
   syncMobileBack();
 }
 
@@ -77,6 +92,7 @@ function toggleMobileNav() {
     sidebar.removeAttribute("inert");
     sidebar.setAttribute("aria-hidden", "false");
   }
+  syncMobileTabs();
   syncMobileBack();
 }
 
@@ -86,10 +102,11 @@ function applyMobileMode() {
   if (mobile) {
     closeMobileEditor();
     closeMobileNav();
+    syncMobileTabs();
     syncMobileBack();
     return;
   }
-  document.body.classList.remove("mobile-editor", "mobile-nav");
+  document.body.classList.remove("mobile-editor", "mobile-nav", "mobile-search");
   const scrim = $("mobile-scrim");
   if (scrim) scrim.hidden = true;
   const sidebar = $("sidebar");
@@ -97,6 +114,7 @@ function applyMobileMode() {
     sidebar.removeAttribute("inert");
     sidebar.setAttribute("aria-hidden", "false");
   }
+  syncMobileTabs();
   syncMobileBack();
 }
 
@@ -136,6 +154,16 @@ function closeTopMobileLayer() {
     closeMobileNav();
     return true;
   }
+  if (document.body.classList.contains("mobile-search")) {
+    document.body.classList.remove("mobile-search");
+    $("search").blur();
+    $("search").value = "";
+    state.search = "";
+    $("save-search").hidden = true;
+    renderCards();
+    syncMobileTabs();
+    return true;
+  }
   if (document.body.classList.contains("mobile-editor")) {
     closeMobileEditor();
     return true;
@@ -156,6 +184,7 @@ async function syncMobileBack() {
   const needed =
     document.body.classList.contains("mobile-editor") ||
     document.body.classList.contains("mobile-nav") ||
+    document.body.classList.contains("mobile-search") ||
     !!topMobileModal() ||
     !!topMobilePopover();
   if (!needed) {
@@ -1448,6 +1477,11 @@ function setView(view) {
   flush();
   closeMobileNav();
   closeMobileEditor();
+  if (isMobile()) {
+    document.body.classList.remove("mobile-search");
+    $("search").blur();
+    syncMobileTabs();
+  }
   state.view = view;
   state.search = "";
   $("search").value = "";
@@ -2155,6 +2189,13 @@ $("search-scope").addEventListener("click", () => {
   renderCards();
 });
 
+$("search").addEventListener("focus", () => {
+  if (!isMobile()) return;
+  document.body.classList.add("mobile-search");
+  syncMobileTabs();
+  syncMobileBack();
+});
+
 $("search").addEventListener("input", (event) => {
   state.search = event.target.value;
   state.savedIndex = null;
@@ -2216,6 +2257,57 @@ $("toggle-sidebar").addEventListener("click", () => {
 
 $("mobile-back").addEventListener("click", closeMobileEditor);
 $("mobile-scrim").addEventListener("click", closeMobileNav);
+
+for (const tab of document.querySelectorAll("[data-mobile-tab]")) {
+  tab.addEventListener("click", () => {
+    const name = tab.dataset.mobileTab;
+    if (name === "notes") {
+      closeMobileNav();
+      closeMobileEditor();
+      document.body.classList.remove("mobile-search");
+      $("search").value = "";
+      state.search = "";
+      $("save-search").hidden = true;
+      $("search").blur();
+      renderCards();
+    } else if (name === "browse") {
+      closeMobileEditor();
+      document.body.classList.remove("mobile-search");
+      $("search").blur();
+      toggleMobileNav();
+    } else if (name === "search") {
+      closeMobileNav();
+      closeMobileEditor();
+      document.body.classList.add("mobile-search");
+      $("search").focus();
+    } else if (name === "settings") {
+      closeMobileNav();
+      closeMobileEditor();
+      document.body.classList.remove("mobile-search");
+      $("search").blur();
+      openSettings();
+    }
+    syncMobileTabs();
+    syncMobileBack();
+  });
+}
+
+$("mobile-lock").addEventListener("click", () => {
+  closeMobileNav();
+  $("lock").click();
+});
+
+$("mobile-compose").addEventListener("click", () => {
+  closeMobileNav();
+  closeMobileEditor();
+  $("new-note").click();
+});
+
+$("mobile-new-note").addEventListener("click", () => {
+  closeMobileNav();
+  closeMobileEditor();
+  $("new-note").click();
+});
 
 // ------------------------------------------------------------ formatting
 

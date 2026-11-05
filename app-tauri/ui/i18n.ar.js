@@ -309,6 +309,9 @@ STRINGS.ar = {
   "Turkish": "التركية",
   "Arabic": "العربية",
   "Notes": "ملاحظات",
+  "Browse": "استعراض",
+  "New": "جديد",
+  "Lock app": "قفل التطبيق",
   "0 words": "0 كلمة",
 
   // longer lines and tooltips

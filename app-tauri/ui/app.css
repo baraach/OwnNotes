@@ -2844,3 +2844,14 @@ html[data-glass="on"] .sync-actions #s-save {
   color: var(--text);
 }
 .sync-actions #s-save:hover { background: var(--hover); }
+
+
+/* Mobile-only controls stay out of the desktop layout. */
+.mobile-back,
+.mobile-scrim,
+.mobile-tabs,
+.mobile-compose,
+.mobile-top-action,
+.mobile-only { display: none; }
+
+.tour-mobile { display: none; }

@@ -194,12 +194,24 @@ const Dialog = (() => {
     box.style.top = top + "px";
   }
 
-  /** A small menu at the pointer (x, y), or under a button when
-   *  `options.anchor` is its rect. items: [{ label, run, danger? }] */
+  /** A native action menu: a bottom sheet on phones, a popover on desktop. */
   function menu(x, y, items, options = {}) {
     document.querySelector(".context-menu")?.remove();
+    document.querySelector(".menu-scrim")?.remove();
+    const mobile = document.documentElement.dataset.mobile === "true";
     const box = document.createElement("div");
-    box.className = "context-menu";
+    box.className = "context-menu" + (mobile ? " menu-sheet" : "");
+    let scrim = null;
+    const close = (event) => {
+      if (event && box.contains(event.target)) return;
+      box.remove();
+      scrim?.remove();
+      document.removeEventListener("mousedown", close, true);
+      document.removeEventListener("keydown", esc);
+    };
+    function esc(event) {
+      if (event.key === "Escape") close();
+    }
     for (const item of items) {
       if (item.separator) {
         const rule = document.createElement("div");
@@ -233,26 +245,29 @@ const Dialog = (() => {
       if (item.danger) row.classList.add("danger");
       if (item.checked || item.check) row.classList.add("checked");
       row.addEventListener("click", () => {
-        box.remove();
+        close();
         item.run();
       });
       box.appendChild(row);
     }
+    if (mobile) {
+      const cancel = document.createElement("button");
+      cancel.className = "menu-cancel";
+      cancel.textContent = t("Cancel");
+      cancel.addEventListener("click", () => close());
+      box.appendChild(cancel);
+      scrim = document.createElement("div");
+      scrim.className = "menu-scrim";
+      scrim.addEventListener("click", () => close());
+      document.body.appendChild(scrim);
+    }
     document.body.appendChild(box);
     if (typeof window.applyPlatformLabels === "function") window.applyPlatformLabels(box);
-    place(box, options.anchor || { x, y }, { align: options.align || "start", gap: options.anchor ? 4 : 0 });
-    const close = (event) => {
-      if (box.contains(event.target)) return;
-      box.remove();
-      document.removeEventListener("mousedown", close, true);
-    };
-    document.addEventListener("mousedown", close, true);
-    document.addEventListener("keydown", function esc(event) {
-      if (event.key === "Escape") {
-        box.remove();
-        document.removeEventListener("keydown", esc);
-      }
-    });
+    if (!mobile) {
+      place(box, options.anchor || { x, y }, { align: options.align || "start", gap: options.anchor ? 4 : 0 });
+      document.addEventListener("mousedown", close, true);
+    }
+    document.addEventListener("keydown", esc);
   }
 
   /** A yes/no question. `confirm()` from the browser does nothing here. */

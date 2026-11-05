@@ -305,6 +305,9 @@ STRINGS.tr = {
   "Turkish": "Türkçe",
   "Arabic": "Arapça",
   "Notes": "Notlar",
+  "Browse": "Gözat",
+  "New": "Yeni",
+  "Lock app": "Uygulamayı kilitle",
   "0 words": "0 kelime",
 
   // longer lines and tooltips

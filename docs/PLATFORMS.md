@@ -32,17 +32,20 @@ app-tauri/ui/
   index.html                  shared markup
   app.css                     shared tokens, layout and desktop panes
   platform.css                shared engine fallbacks (no blur, high contrast)
-  mobile.css                  shared phone/tablet layout
   platform/macos.css          macOS-only corrections
   platform/windows.css        Windows title-bar/toolbar corrections
   platform/linux.css          Linux title-bar/toolbar corrections
-  platform/ios.css            iOS-only corrections
-  platform/android.css        Android status-bar corrections
+  platform/ios.css            complete iOS phone/tablet design and chrome
+  platform/android.css        complete Android phone/tablet design and chrome
   app.js                      shared application logic
 ```
 
-Everything in `mobile.css` and `platform/*.css` is scoped with
-`data-mobile` or `data-platform`, so the desktop layout does not match it.
+There is deliberately no shared mobile stylesheet: the iOS and Android
+layouts and chrome are independent, so a change to one cannot restyle the
+other. Every phone rule is scoped with `data-mobile` and `data-platform`,
+so the desktop layout never matches it. The iOS build uses a floating
+liquid-glass header and tab bar; Android uses a solid Material top app bar,
+navigation bar and compose action.
 
 ## Tauri configuration
 
