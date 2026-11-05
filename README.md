@@ -42,16 +42,22 @@ one-pane layout with platform-specific navigation and chrome.
 ## 📸 Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/app.png" width="900" alt="OwnNotes desktop with a note open: sidebar, note list and rich text editor" />
+  <img src="docs/screenshots/macos.png" width="900" alt="OwnNotes on macOS with a note open: floating sidebar, note list and rich text editor" />
 </p>
 
 <p align="center">
-  <sub>Desktop: the same sample notes as the phone screenshots, with the
-  notebook tree on the left and a rich note and the format bar on the right.</sub>
+  <img src="docs/screenshots/windows.png" width="440" alt="OwnNotes on Windows 11 with the Fluent toolbar, notebook tree and a note open" />
+  <img src="docs/screenshots/linux.png" width="440" alt="OwnNotes on Linux with the Adwaita header bar, notebook tree and a note open" />
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/ios.png" width="300" alt="OwnNotes on iPhone with the iOS list, floating navigation and compose action" />
+  <sub>macOS, Windows 11 and Linux: the same three-pane layout and sample
+  notes, each following its own system design. The notebook tree stays on the
+  left, with the rich note and format bar on the right.</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/ios.png" width="300" alt="OwnNotes on iPhone with the iOS list, floating navigation and Search action" />
   <img src="docs/screenshots/android.png" width="300" alt="OwnNotes on Android with the Material search bar, note list and bottom navigation" />
 </p>
 
