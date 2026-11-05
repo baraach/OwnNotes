@@ -132,8 +132,9 @@ fn clean_line(line: &str) -> String {
     if s == "---" {
         return String::new();
     }
-    let s = strip_tags(s);
-    s.replace("**", "").replace("~~", "").replace('`', "")
+    let s = decode_entities(&strip_tags(s));
+    let s = s.replace("**", "").replace("~~", "").replace('`', "");
+    s.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 /// Drop the small HTML tags the editor adds for underline, highlight and
@@ -144,7 +145,14 @@ fn strip_tags(line: &str) -> String {
     while let Some(start) = rest.find('<') {
         out.push_str(&rest[..start]);
         match rest[start..].find('>') {
-            Some(end) => rest = &rest[start + end + 1..],
+            Some(end) => {
+                // A note is often one long line of HTML: without a gap, the
+                // end of one paragraph runs straight into the next.
+                if ends_a_block(&rest[start + 1..start + end]) {
+                    out.push(' ');
+                }
+                rest = &rest[start + end + 1..];
+            }
             None => {
                 out.push_str(&rest[start..]);
                 return out;
@@ -153,6 +161,30 @@ fn strip_tags(line: &str) -> String {
     }
     out.push_str(rest);
     out
+}
+
+/// True for a tag that ends a line when the note is shown.
+fn ends_a_block(tag: &str) -> bool {
+    let tag = tag.trim_end_matches('/').trim().to_ascii_lowercase();
+    let name = tag.split_whitespace().next().unwrap_or("");
+    matches!(
+        name,
+        "/p" | "/div" | "/li" | "/ul" | "/ol" | "/blockquote" | "/pre" | "/tr" | "/td" | "/th"
+            | "/h1" | "/h2" | "/h3" | "/h4" | "/h5" | "/h6" | "/summary" | "/details" | "br" | "hr"
+    )
+}
+
+/// The entities the editor writes, so a preview shows the character and not
+/// its code. `&amp;` goes last, or `&amp;lt;` would turn into `<`.
+fn decode_entities(text: &str) -> String {
+    text.replace("&nbsp;", " ")
+        .replace('\u{a0}', " ")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&apos;", "'")
+        .replace("&amp;", "&")
 }
 
 /// "Today, 8:14 PM", "Yesterday, 9:02 AM", "Oct 30, 1:44 PM" or "Oct 30, 2024".
@@ -550,5 +582,35 @@ impl Document {
     /// How many notes are in the trash.
     pub fn trash_count(&self) -> usize {
         self.notes.iter().filter(|n| n.trashed).count()
+    }
+}
+
+#[cfg(test)]
+mod preview_tests {
+    use super::clean_line;
+
+    #[test]
+    fn paragraphs_on_one_line_stay_apart_in_a_preview() {
+        assert_eq!(clean_line("<p>Quarter plan</p><p>Sync plan</p>"), "Quarter plan Sync plan");
+    }
+
+    #[test]
+    fn list_items_on_one_line_stay_apart_in_a_preview() {
+        assert_eq!(clean_line("<ul><li>Eggs</li><li>Milk</li></ul>"), "Eggs Milk");
+    }
+
+    #[test]
+    fn inline_tags_do_not_split_a_word() {
+        assert_eq!(clean_line("un<b>believ</b>able"), "unbelievable");
+    }
+
+    #[test]
+    fn a_preview_shows_characters_and_not_their_codes() {
+        assert_eq!(clean_line("Tom &amp; Jerry&nbsp;&lt;3"), "Tom & Jerry <3");
+    }
+
+    #[test]
+    fn a_line_of_only_blank_space_previews_as_nothing() {
+        assert_eq!(clean_line("<ul><li><input type=\"checkbox\">&nbsp;</li></ul>"), "");
     }
 }

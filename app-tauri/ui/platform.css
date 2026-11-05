@@ -1,6 +1,14 @@
 /* Engine fallbacks shared by every platform. Platform chrome lives in
    ui/platform/<platform>.css. */
 
+/* The accent table only holds light tints, and the app sets them inline, so a
+   dark theme has to insist or a selected control turns into a pale block. */
+:root:is([data-theme="dark"], [data-theme="nord"], [data-theme="graphite"], [data-theme="forest"]) {
+  --accent-soft: color-mix(in srgb, var(--accent) 24%, transparent) !important;
+  /* Native controls and their pop-ups follow the theme, not the system. */
+  color-scheme: dark;
+}
+
 /* Older WebKitGTK builds have no backdrop blur. Solid surfaces keep the
    rounded, layered design readable instead of turning the panes to haze. */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {

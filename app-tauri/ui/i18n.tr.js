@@ -56,6 +56,8 @@ STRINGS.tr = {
   "Find in note": "Notta ara",
   "Next": "Sonraki",
   "Close": "Kapat",
+  "Minimize": "Küçült",
+  "Maximize": "Büyüt",
   "words": "kelime",
 
   // note menu

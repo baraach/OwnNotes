@@ -57,6 +57,8 @@ STRINGS.ar = {
   "Find in note": "بحث في الملاحظة",
   "Next": "التالي",
   "Close": "إغلاق",
+  "Minimize": "تصغير",
+  "Maximize": "تكبير",
   "words": "كلمة",
 
   // note menu

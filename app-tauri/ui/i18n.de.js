@@ -56,6 +56,8 @@ STRINGS.de = {
   "Find in note": "In Notiz suchen",
   "Next": "Weiter",
   "Close": "Schließen",
+  "Minimize": "Minimieren",
+  "Maximize": "Maximieren",
   "words": "Wörter",
 
   // note menu

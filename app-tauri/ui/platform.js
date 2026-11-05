@@ -9,6 +9,21 @@
   const mac = !ios && !android && !win && !linux && (/Macintosh|Mac OS X/i.test(ua) || /Mac/i.test(p));
   document.documentElement.dataset.platform = ios ? "ios" : android ? "android" : mac ? "mac" : win ? "windows" : "linux";
   document.documentElement.dataset.mobile = ios || android ? "true" : "false";
+  // Linux always uses solid surfaces; the glass treatment is an Apple look.
+  document.documentElement.dataset.glass =
+    document.documentElement.dataset.platform === "linux" ? "off" : "on";
+  // Only the main desktop window has the clear strip around it. Note windows
+  // keep a normal system frame.
+  if ((mac || win || linux) && !/[?&]note=/.test(location.search)) {
+    document.documentElement.dataset.window = "main";
+  }
+
+  // Desktop windows quieten their chrome when they lose focus, as native ones do.
+  if (!ios && !android) {
+    const root = document.documentElement;
+    window.addEventListener("blur", () => root.classList.add("window-inactive"));
+    window.addEventListener("focus", () => root.classList.remove("window-inactive"));
+  }
 
   // Android draws the app behind its system bars and does not resize the
   // webview for the keyboard, so the activity reports the real sizes here.

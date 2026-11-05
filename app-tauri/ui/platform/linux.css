@@ -1,16 +1,492 @@
-/* Linux: native title bar, compact in-app toolbar. */
+/* Linux: a complete desktop design, following GNOME and Adwaita.
 
-/* Platform-specific chrome and engine fallbacks.
-   macOS keeps its overlay title bar; Windows and Linux use their native one.
-   Loaded after app.css so these rules can override the shared layout. */
+   Solid surfaces only, as the system asks. A header bar with flat buttons, a
+   navigation sidebar, boxed lists for settings, and pill-free neutral
+   selection. Colours come from the theme, so the named looks still apply.
+   Nothing here can reach another platform: every rule is scoped to "linux". */
 
-/* ------------------------------------------------- Windows / Linux chrome */
-
-/* Those platforms keep their native title bar. The in-app bar is a compact
-   toolbar underneath it, with no traffic-light gap or grab strips. */
-html[data-platform="linux"] .topbar {
-  height: 48px;
-  padding: 0 10px 0 12px;
+:root[data-platform="linux"] {
+  --adw-hover: color-mix(in srgb, var(--text) 7%, transparent);
+  --adw-active: color-mix(in srgb, var(--text) 10%, transparent);
+  --adw-pressed: color-mix(in srgb, var(--text) 16%, transparent);
+  --adw-button: color-mix(in srgb, var(--text) 10%, transparent);
+  --adw-shade: color-mix(in srgb, var(--text) 14%, transparent);
+  --adw-card-line: color-mix(in srgb, var(--text) 8%, transparent);
+  --adw-header: color-mix(in srgb, var(--editor) 94%, var(--text));
+  --adw-card: var(--editor);
+  --ease-adw: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  /* The desktop's own font first: GNOME, KDE and XFCE each choose differently. */
+  font-family: system-ui, "Adwaita Sans", "Cantarell", "Noto Sans", sans-serif;
 }
-html[data-platform="linux"] .topbar > .traffic-space { display: none; }
-html[data-glass="on"][data-platform="linux"] .drag-strip { display: none; }
+:root[data-platform="linux"] body { font-family: inherit; font-size: 14px; }
+:root[data-platform="linux"] :is(button, input, select, textarea) { font-family: inherit; }
+:root[data-platform="linux"] :is(button, .row, .card, label, select, summary) { cursor: default; }
+
+/* The main window has no system frame and is see-through, and the app inside is
+   solid: only the strip around it and the gaps between its cards show the desktop.
+   Linux has no standard blur, so the sidebar stays solid to keep text readable.
+   The app sets
+   `data-material="on"` once it knows the desktop has a compositor, because clear
+   pixels come out black without one; the page paints the strip until then. */
+:root[data-platform="linux"] {
+  --adw-ring: 0px;
+  --adw-gap: color-mix(in srgb, var(--sidebar) 88%, var(--text));
+  background: var(--adw-gap);
+}
+:root[data-platform="linux"] body { background: transparent; }
+:root[data-platform="linux"][data-material="on"]:not([data-filled]) { background: transparent; }
+
+@media (min-width: 901px) {
+  :root[data-platform="linux"][data-window="main"]:not([data-filled]) { --adw-ring: 8px; }
+  :root[data-platform="linux"] .app {
+    margin: var(--adw-ring);
+    height: calc(100% - 2 * var(--adw-ring));
+    gap: 8px;
+  }
+  :root[data-platform="linux"] .panes { gap: 8px; }
+  :root[data-platform="linux"] :is(.topbar, .sidebar, .list, .editor, .info) {
+    border: 1px solid var(--adw-shade);
+    border-radius: 10px;
+    box-shadow: none;
+    overflow: hidden;
+  }
+  :root[data-platform="linux"] .sidebar.is-hidden { border: 0; margin-inline-end: -8px; }
+  :root[data-platform="linux"] .editor { background: var(--editor); }
+  :root[data-platform="linux"] .topbar { overflow: visible; }
+  /* Scrims stop at the app's edge, so the strip stays clear behind a dialog. */
+  :root[data-platform="linux"] :is(.modal, .welcome) { inset: var(--adw-ring); border-radius: 10px; }
+  :root[data-platform="linux"][data-filled] :is(.modal, .welcome) { border-radius: 0; }
+}
+
+/* Window buttons: round and quiet, as in a GNOME header bar. */
+:root[data-platform="linux"][data-window="main"] .win-controls { display: flex; gap: 8px; margin-inline: 6px 2px; }
+:root[data-platform="linux"] .win-controls button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--adw-button);
+  color: var(--text);
+  transition: background-color 150ms var(--ease-adw);
+}
+:root[data-platform="linux"] .win-controls svg { width: 10px; height: 10px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; }
+:root[data-platform="linux"] .win-controls button:hover { background: var(--adw-pressed); }
+
+/* ------------------------------------------------------------ header bar */
+
+:root[data-platform="linux"] .topbar {
+  height: 46px;
+  padding: 0 6px;
+  gap: 6px;
+  border: 0;
+  background: var(--adw-header);
+  box-shadow: 0 1px 0 var(--adw-shade);
+  z-index: 3;
+}
+:root[data-platform="linux"] .topbar > .traffic-space,
+:root[data-platform="linux"] .drag-strip { display: none; }
+
+:root[data-platform="linux"] :is(.topbar, .editor-tools, .list-head, .editor-foot) .icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  color: var(--text);
+  transition: background-color 150ms var(--ease-adw);
+}
+:root[data-platform="linux"] :is(.topbar, .editor-tools, .list-head, .editor-foot) .icon:hover { background: var(--adw-hover); color: var(--text); }
+:root[data-platform="linux"] :is(.topbar, .editor-tools, .list-head, .editor-foot) .icon:active { background: var(--adw-pressed); }
+:root[data-platform="linux"] :is(.topbar, .editor-tools, .list-head) .icon.on { background: var(--adw-active); color: var(--text); }
+
+:root[data-platform="linux"] .search-box,
+:root[data-platform="linux"] :is(.sheet input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), .dialog-input) {
+  border: 0;
+  border-radius: 6px;
+  background: var(--adw-button);
+  box-shadow: none;
+  font-size: 14px;
+}
+:root[data-platform="linux"] .search-box { height: 34px; }
+:root[data-platform="linux"] .search-box:focus-within,
+:root[data-platform="linux"] :is(.sheet input, .dialog-input):focus {
+  background: var(--adw-button);
+  outline: 2px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  outline-offset: -2px;
+  border-color: transparent;
+}
+:root[data-platform="linux"] .sheet input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) { min-height: 34px; padding: 4px 10px; }
+
+/* WebKitGTK draws its own light menu button whatever the theme, so these are
+   drawn here to match the fields around them. */
+:root[data-platform="linux"] :is(.select, .settings-pages select) {
+  -webkit-appearance: none;
+  appearance: none;
+  min-height: 34px;
+  padding: 4px 30px 4px 10px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 14px;
+  background-color: var(--adw-button);
+  background-image: linear-gradient(45deg, transparent 50%, var(--dim) 50%), linear-gradient(-45deg, transparent 50%, var(--dim) 50%);
+  background-position: right 15px center, right 10px center;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+:root[data-platform="linux"][dir="rtl"] :is(.select, .settings-pages select) {
+  padding: 4px 10px 4px 30px;
+  background-position: left 10px center, left 15px center;
+}
+:root[data-platform="linux"] :is(.select, .settings-pages select) option { background: var(--editor); color: var(--text); }
+
+/* Suggested action: the accent, in bold. */
+
+
+/* WebKitGTK ignores the theme for checkboxes too, so a dark note gets white
+   boxes unless they are drawn here. Settings' switches are drawn further down. */
+:root[data-platform="linux"] :is(.body, .sheet) input[type="checkbox"] {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border: 1px solid color-mix(in srgb, var(--text) 40%, transparent);
+  border-radius: 4px;
+  background: transparent;
+  vertical-align: -3px;
+}
+:root[data-platform="linux"] :is(.body, .sheet) input[type="checkbox"]:checked {
+  border-color: var(--accent);
+  background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m4 8 3 3 5-6' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 14px no-repeat;
+}
+
+/* ----------------------------------------------------------------- panes */
+
+/* Solid panes still resize; the grips are the same as on the other desktops. */
+:root[data-platform="linux"] .panes { position: relative; }
+:root[data-platform="linux"] .sidebar {
+  width: var(--pane-sidebar);
+  flex: 0 0 var(--pane-sidebar);
+  background: var(--sidebar);
+  border-inline-end: 1px solid var(--adw-shade);
+}
+:root[data-platform="linux"] .list {
+  width: var(--pane-list);
+  flex: 0 0 var(--pane-list);
+  background: var(--list);
+  border-inline-end: 1px solid var(--adw-shade);
+}
+:root[data-platform="linux"] .info {
+  width: var(--pane-info);
+  flex: 0 0 var(--pane-info);
+  border-inline-start: 1px solid var(--adw-shade);
+}
+:root[data-platform="linux"] .sidebar.is-hidden { width: 0; flex: 0 0 0; border: 0; }
+:root[data-platform="linux"] .pane-grip {
+  display: block;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 10px;
+  transform: translateX(-50%);
+  z-index: 7;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+:root[data-platform="linux"] .pane-head { border-bottom: 1px solid var(--adw-card-line); }
+:root[data-platform="linux"] .sidebar .pane-head { border: 0; padding: 0 6px 0 12px; }
+:root[data-platform="linux"] .sidebar-scroll { padding: 2px 6px 12px; }
+
+/* Navigation rows select in neutral grey; the accent is for actions. */
+:root[data-platform="linux"] .row {
+  min-height: 36px;
+  padding: 4px 10px;
+  gap: 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: background-color 150ms var(--ease-adw);
+}
+:root[data-platform="linux"] .sidebar .row:hover { background: var(--adw-hover); }
+:root[data-platform="linux"] .sidebar .row:active { background: var(--adw-pressed); }
+:root[data-platform="linux"] .sidebar .links .row { color: var(--text); }
+:root[data-platform="linux"] .sidebar .row.active { background: var(--adw-active); color: var(--text); font-weight: 400; }
+:root[data-platform="linux"] .sidebar .row .glyph { color: var(--text); }
+:root[data-platform="linux"] .sidebar .row .tile { border-radius: 50%; }
+
+:root[data-platform="linux"] .section-title {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--dim);
+}
+:root[data-platform="linux"] .section-title .tiny { color: var(--dim); font-size: 16px; font-weight: 400; }
+:root[data-platform="linux"] .space-button { font-weight: 700; font-size: 14px; }
+:root[data-platform="linux"] .space-button:hover { background: var(--adw-hover); }
+
+:root[data-platform="linux"] .list-head h2 { font-size: 14px; font-weight: 700; }
+:root[data-platform="linux"] .cards { padding: 6px; gap: 2px; }
+:root[data-platform="linux"] .card {
+  padding: 10px 12px;
+  border-radius: 6px;
+  transition: background-color 150ms var(--ease-adw);
+}
+:root[data-platform="linux"] .card:hover { background: var(--adw-hover); }
+:root[data-platform="linux"] .card.active { background: var(--adw-active); }
+:root[data-platform="linux"] .card .name { font-size: 14px; font-weight: 700; }
+
+:root[data-platform="linux"] .title { font-size: 26px; font-weight: 800; }
+
+/* A bottom toolbar, joined to the window edge. */
+:root[data-platform="linux"] .format-bar { padding: 5px 6px; border-top: 1px solid var(--adw-shade); background: var(--adw-header); }
+:root[data-platform="linux"] .editor-foot { padding: 5px 10px; background: var(--adw-header); }
+:root[data-platform="linux"] .format-bar button { min-height: 30px; border-radius: 6px; color: var(--text); }
+:root[data-platform="linux"] .format-bar button:hover { background: var(--adw-hover); color: var(--text); }
+:root[data-platform="linux"] .format-bar .sep { background: var(--adw-shade); }
+
+/* --------------------------------------------------------------- dialogs */
+
+:root[data-platform="linux"] .modal:not(#lock-screen) { background: rgba(0, 0, 0, 0.32); }
+:root[data-platform="linux"] .modal:not(#lock-screen) .sheet,
+:root[data-platform="linux"] .decision-sheet,
+:root[data-platform="linux"] .formula-sheet {
+  border: 0;
+  border-radius: 14px;
+  background: var(--sidebar);
+  box-shadow:
+    0 0 0 1px var(--adw-card-line),
+    0 16px 48px rgba(0, 0, 0, 0.32);
+  animation: adw-dialog 200ms var(--ease-adw);
+}
+@keyframes adw-dialog { from { opacity: 0; transform: scale(0.95); } }
+:root[data-platform="linux"] .sheet h3 { font-size: 15px; font-weight: 700; }
+
+/* Preferences: a sidebar and boxed lists with GTK switches. */
+:root[data-platform="linux"] .settings-tabs { padding: 8px 6px; border-inline-end: 1px solid var(--adw-shade); }
+:root[data-platform="linux"] .settings-tabs button {
+  min-height: 36px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 14px;
+  color: var(--text);
+}
+:root[data-platform="linux"] .settings-tabs button:hover { background: var(--adw-hover); color: var(--text); }
+:root[data-platform="linux"] .settings-tabs button.active { background: var(--adw-active); color: var(--text); }
+
+:root[data-platform="linux"] .settings-pages h3 { font-size: 20px; font-weight: 800; }
+:root[data-platform="linux"] .settings-pages h4 {
+  margin: 22px 0 8px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text);
+}
+:root[data-platform="linux"] .settings-pages label:not(.check) { font-size: 14px; color: var(--text); }
+
+:root[data-platform="linux"] .settings-pages :is(.check, .option-row) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 50px;
+  margin: 0;
+  padding: 8px 12px;
+  background: var(--adw-card);
+  box-shadow: inset 1px 0 0 var(--adw-card-line), inset -1px 0 0 var(--adw-card-line);
+  font-size: 14px;
+  color: var(--text);
+}
+:root[data-platform="linux"] .settings-pages .check { flex-direction: row-reverse; }
+:root[data-platform="linux"] .settings-pages :is(.check, .option-row) + :is(.check, .option-row) { border-top: 1px solid var(--adw-card-line); }
+:root[data-platform="linux"] .settings-pages :is(.check, .option-row):not(:is(.check, .option-row) + *) {
+  border-top: 1px solid var(--adw-card-line);
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+  margin-top: 10px;
+}
+:root[data-platform="linux"] .settings-pages :is(.check, .option-row):not(:has(+ :is(.check, .option-row))) {
+  border-bottom: 1px solid var(--adw-card-line);
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+  margin-bottom: 12px;
+}
+
+:root[data-platform="linux"] .settings-pages .check input[type="checkbox"] {
+  -webkit-appearance: none;
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 46px;
+  height: 26px;
+  margin: 0;
+  border: 0;
+  border-radius: 13px;
+  background: var(--adw-pressed);
+  transition: background-color 150ms var(--ease-adw);
+}
+:root[data-platform="linux"] .settings-pages .check input[type="checkbox"]::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  inset-inline-start: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: inset-inline-start 150ms var(--ease-adw);
+}
+:root[data-platform="linux"] .settings-pages .check input[type="checkbox"]::after { content: none; }
+:root[data-platform="linux"] .settings-pages .check input[type="checkbox"]:checked { background: var(--accent); }
+:root[data-platform="linux"] .settings-pages .check input[type="checkbox"]:checked::before { inset-inline-start: 23px; }
+
+
+/* Action rows wrap whole buttons, rather than wrapping the words inside them. */
+:root[data-platform="linux"] .settings-pages .modal-row { flex-wrap: wrap; }
+:root[data-platform="linux"] .settings-pages .modal-row + h4 { margin-top: 22px; }
+
+/* --------------------------------------------------------------- popovers */
+
+:root[data-platform="linux"] :is(.context-menu, .slash-menu, .text-style-pop, .table-tools, .palette, .find-bar) {
+  border: 0;
+  border-radius: 12px;
+  background: var(--editor);
+  box-shadow:
+    0 0 0 1px var(--adw-card-line),
+    0 4px 16px rgba(0, 0, 0, 0.22);
+}
+:root[data-platform="linux"] .context-menu { padding: 6px; }
+:root[data-platform="linux"] .context-menu button {
+  min-height: 32px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 14px;
+}
+:root[data-platform="linux"] .context-menu button:hover { background: var(--adw-hover); }
+:root[data-platform="linux"] .context-menu .menu-sep { background: var(--adw-card-line); margin: 6px 0; }
+
+:root[data-platform="linux"] .toast { border-radius: 19px; }
+
+/* --------------------------------------------------------------- buttons */
+
+/* Every text button on Linux is the same 34px Adwaita button.
+   The two ids get their own selector because the shared rules style them by
+   id; in one list, that id weight would beat the danger and link colours. */
+:root[data-platform="linux"] button:is(.primary, .ghost, .export-go),
+:root[data-platform="linux"] .sync-actions button:is(#s-connect, #s-save),
+:root[data-platform="linux"] .theme-chip,
+:root[data-platform="linux"] .segmented button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  min-height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--adw-button);
+  background-image: none;
+  box-shadow: none;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-decoration: none;
+}
+:root[data-platform="linux"] button:is(.primary, .ghost, .export-go):hover,
+:root[data-platform="linux"] .sync-actions button:is(#s-connect, #s-save):hover,
+:root[data-platform="linux"] .theme-chip:hover,
+:root[data-platform="linux"] .segmented button:not(.active):hover {
+  background: var(--adw-pressed);
+  border-color: transparent;
+  color: var(--text);
+  filter: none;
+  text-decoration: none;
+}
+:root[data-platform="linux"] button:is(.primary, .ghost, .export-go):active,
+:root[data-platform="linux"] .theme-chip:active { filter: brightness(0.9); transform: none; }
+
+/* One filled action per place: the accent, otherwise the same button. */
+:root[data-platform="linux"] button.primary,
+:root[data-platform="linux"] .sync-actions button#s-connect,
+:root[data-platform="linux"] .theme-chip.on {
+  border-color: transparent;
+  background: var(--accent);
+  color: #fff;
+}
+:root[data-platform="linux"] button.primary:hover,
+:root[data-platform="linux"] .sync-actions button#s-connect:hover,
+:root[data-platform="linux"] .theme-chip.on:hover {
+  border-color: transparent;
+  background: var(--accent);
+  color: #fff;
+  filter: brightness(1.08);
+}
+
+:root[data-platform="linux"] button.ghost.danger { color: var(--danger); }
+:root[data-platform="linux"] button.ghost.danger:hover { color: var(--danger); }
+/* The sheet keeps one size, so moving between pages doesn't make it jump. */
+@media (min-width: 901px) {
+  :root[data-platform="linux"] #settings-modal .sheet.wide { height: min(620px, 86vh); }
+  :root[data-platform="linux"] #settings-modal .settings-body { flex: 1; min-height: 0; }
+}
+
+/* A row's own Delete stays quiet: it is a link beside a field, not an action. */
+:root[data-platform="linux"] .nb-row button.ghost,
+:root[data-platform="linux"] .nb-row button.ghost:hover {
+  height: auto;
+  min-height: 0;
+  padding: 4px 8px;
+  border: 0;
+  background: transparent;
+  color: var(--danger);
+}
+
+/* The modes are one control made of those same buttons, selected like a chip. */
+:root[data-platform="linux"] .segmented {
+  display: inline-flex;
+  gap: 0;
+  padding: 2px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--adw-button);
+}
+:root[data-platform="linux"] .segmented button {
+  height: 30px;
+  min-height: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+}
+:root[data-platform="linux"] .segmented button.active {
+  border: 0;
+  background: var(--accent);
+  color: #fff;
+  box-shadow: none;
+}
+
+:root[data-platform="linux"] .theme-row { gap: 6px; }
+:root[data-platform="linux"] .settings-pages .modal-row { flex-wrap: wrap; gap: 8px; }
+:root[data-platform="linux"] .topbar > #new-note { flex: none; }
+
+:root[data-platform="linux"] :is(button, .row, .card, .theme-chip):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  outline-offset: -2px;
+}
+
+:root[data-platform="linux"] ::-webkit-scrollbar { width: 10px; height: 10px; }
+:root[data-platform="linux"] ::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--text) 30%, transparent) padding-box;
+}
+:root[data-platform="linux"] ::-webkit-scrollbar-track { background: transparent; }
+
+/* A backdrop window goes quiet, as GTK windows do. */
+:root[data-platform="linux"].window-inactive .topbar { background: var(--sidebar); }
+:root[data-platform="linux"].window-inactive :is(.topbar .icon, .search-box) { opacity: 0.6; }
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-platform="linux"] :is(.modal .sheet, .decision-sheet, .formula-sheet) { animation: none; }
+}

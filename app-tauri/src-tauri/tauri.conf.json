@@ -8,6 +8,7 @@
   },
   "app": {
     "withGlobalTauri": true,
+    "macOSPrivateApi": true,
     "windows": [
       {
         "title": "OwnNotes",
@@ -18,8 +19,8 @@
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
         "trafficLightPosition": {
-          "x": 14,
-          "y": 32
+          "x": 20,
+          "y": 26
         }
       }
     ]
@@ -38,7 +39,7 @@
     "shortDescription": "Notes that are files you own",
     "longDescription": "OwnNotes keeps your notes as plain HTML files in a folder you choose, with rich text, six languages including Arabic right-to-left, and sync through your own WebDAV server.",
     "macOS": {
-      "minimumSystemVersion": "11.0"
+      "minimumSystemVersion": "13.1"
     }
   }
 }

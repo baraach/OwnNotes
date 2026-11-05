@@ -56,6 +56,8 @@ STRINGS.fr = {
   "Find in note": "Chercher dans la note",
   "Next": "Suivant",
   "Close": "Fermer",
+  "Minimize": "Réduire",
+  "Maximize": "Agrandir",
   "words": "mots",
 
   // note menu

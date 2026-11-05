@@ -10,15 +10,15 @@
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
         "trafficLightPosition": {
-          "x": 14,
-          "y": 32
+          "x": 20,
+          "y": 26
         }
       }
     ]
   },
   "bundle": {
     "macOS": {
-      "minimumSystemVersion": "11.0"
+      "minimumSystemVersion": "13.1"
     }
   }
 }

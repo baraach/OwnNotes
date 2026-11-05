@@ -9,7 +9,31 @@ pub fn data_dir<R: Runtime>(_app: &App<R>) -> PathBuf {
     ownnotes_core::store::data_dir()
 }
 
+/// The main window is see-through and has no system frame, so Mica shows on every
+/// side of the app. The page draws the window buttons.
+/// Set here because the same config builds the other platforms.
+pub fn prepare_context<R: Runtime>(context: &mut tauri::Context<R>) {
+    if let Some(window) = context.config_mut().app.windows.first_mut() {
+        window.transparent = true;
+        window.decorations = false;
+        window.shadow = false;
+    }
+}
+
+/// Put Mica behind the page. Older Windows has no Mica and refuses, which leaves
+/// the strip clear; the sidebar's own tint keeps its text readable either way.
+fn apply_material<R: Runtime>(window: &WebviewWindow<R>) {
+    let _ = window.set_effects(
+        tauri::window::EffectsBuilder::new()
+            .effect(tauri::window::Effect::Mica)
+            .build(),
+    );
+}
+
 pub fn restore_window<R: Runtime>(app: &App<R>) {
+    if let Some(window) = app.get_webview_window("main") {
+        apply_material(&window);
+    }
     let dir = ownnotes_core::store::data_dir();
     let Some((x, y, w, h)) = crate::extras::load(&dir).window else {
         return;

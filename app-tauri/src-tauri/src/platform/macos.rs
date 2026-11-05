@@ -2,6 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
+use tauri::window::{Effect, EffectState, EffectsBuilder};
 use tauri::{App, AppHandle, Manager, Runtime, WebviewWindow};
 use tauri_plugin_opener::OpenerExt;
 
@@ -9,7 +10,30 @@ pub fn data_dir<R: Runtime>(_app: &App<R>) -> PathBuf {
     ownnotes_core::store::data_dir()
 }
 
+/// The main window is see-through, so the frosted material can show behind the
+/// page. Set here because the same config builds the other platforms.
+pub fn prepare_context<R: Runtime>(context: &mut tauri::Context<R>) {
+    if let Some(window) = context.config_mut().app.windows.first_mut() {
+        window.transparent = true;
+    }
+}
+
+/// Put the frosted system material behind the page. It stays on when the window
+/// is in the background, or macOS swaps it for a flat grey. If macOS refuses, the
+/// page is still readable, because its sidebar has a tint of its own.
+fn apply_material<R: Runtime>(window: &WebviewWindow<R>) {
+    let _ = window.set_effects(
+        EffectsBuilder::new()
+            .effect(Effect::LiquidGlassRegular)
+            .state(EffectState::Active)
+            .build(),
+    );
+}
+
 pub fn restore_window<R: Runtime>(app: &App<R>) {
+    if let Some(window) = app.get_webview_window("main") {
+        apply_material(&window);
+    }
     let dir = ownnotes_core::store::data_dir();
     let Some((x, y, w, h)) = crate::extras::load(&dir).window else {
         return;

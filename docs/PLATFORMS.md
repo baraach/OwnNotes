@@ -30,15 +30,35 @@ shared note/format/sync bug belongs in `core/` or the shared part of
 ```
 app-tauri/ui/
   index.html                  shared markup
-  app.css                     shared tokens, layout and desktop panes
+  app.css                     shared tokens, components and base panes
   platform.css                shared engine fallbacks (no blur, high contrast)
-  platform/macos.css          macOS-only corrections
-  platform/windows.css        Windows title-bar/toolbar corrections
-  platform/linux.css          Linux title-bar/toolbar corrections
+  platform/macos.css          complete macOS design and chrome
+  platform/windows.css        complete Windows 11 (Fluent) design and chrome
+  platform/linux.css          complete GNOME (Adwaita) design and chrome
   platform/ios.css            complete iOS phone/tablet design and chrome
   platform/android.css        complete Android phone/tablet design and chrome
   app.js                      shared application logic
 ```
+
+The three desktops are split the same way. Each stylesheet sits on the shared
+base and is scoped with `data-platform`, so a change to one cannot restyle
+another. macOS has a floating sidebar with the traffic lights inside it, and one
+toolbar row of capsules across list and note. Its see-through window needs
+Tauri's `macos-private-api` feature, so this build cannot go on the Mac App
+Store. Windows is flat and Mica-toned, with
+accent selection pills, small corners and Settings-app toggle cards. Linux is
+solid throughout, as Adwaita asks, with a header bar, neutral selection, boxed
+lists and GTK switches. All three dim their chrome when the window loses focus.
+
+The main window on macOS and Windows 11 has frosted system material behind it
+(`platform/*.rs`), showing in an 8px strip around the app, in the gaps between its
+cards and in the sidebar. Each of those mixes in the theme's colour to keep text
+readable. Linux has no standard blur, so its sidebar is solid and only the strip
+and gaps are clear. Clear pixels come out black on a Linux desktop without a
+compositor, so `platform/linux.rs` watches for one and the page paints them when
+there is none. Filling the screen removes the strip. macOS keeps its traffic
+lights. Windows and Linux have no system frame, so the toolbar draws their window
+buttons.
 
 There is deliberately no shared mobile stylesheet: the iOS and Android
 layouts and chrome are independent, so a change to one cannot restyle the

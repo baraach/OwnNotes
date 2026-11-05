@@ -1,16 +1,494 @@
-/* Windows: native title bar, compact in-app toolbar. */
+/* Windows: a complete desktop design, following Windows 11 and Fluent.
 
-/* Platform-specific chrome and engine fallbacks.
-   macOS keeps its overlay title bar; Windows and Linux use their native one.
-   Loaded after app.css so these rules can override the shared layout. */
+   Chrome sits flat on a Mica-toned window, with the native title bar above a
+   command bar. List and note are one content layer with a rounded leading
+   corner. Selection is a soft fill with a short accent pill, controls have
+   small corners, and flyouts are the only floating surfaces.
+   Nothing here can reach another platform: every rule is scoped to "windows". */
 
-/* ------------------------------------------------- Windows / Linux chrome */
-
-/* Those platforms keep their native title bar. The in-app bar is a compact
-   toolbar underneath it, with no traffic-light gap or grab strips. */
-html[data-platform="windows"] .topbar {
-  height: 48px;
-  padding: 0 10px 0 12px;
+:root[data-platform="windows"] {
+  --win-subtle: color-mix(in srgb, var(--text) 6%, transparent);
+  --win-subtle-2: color-mix(in srgb, var(--text) 4%, transparent);
+  --win-control: color-mix(in srgb, var(--editor) 70%, transparent);
+  --win-stroke: color-mix(in srgb, var(--text) 9%, transparent);
+  --win-stroke-strong: color-mix(in srgb, var(--text) 45%, transparent);
+  --win-mica: color-mix(in srgb, var(--sidebar) 92%, var(--text));
+  --win-flyout: 0 8px 16px rgba(0, 0, 0, 0.14), 0 0 2px rgba(0, 0, 0, 0.1);
+  --win-dialog: 0 32px 64px rgba(0, 0, 0, 0.24), 0 2px 21px rgba(0, 0, 0, 0.2);
+  --ease-win: cubic-bezier(0.1, 0.9, 0.2, 1);
+  font-family: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", sans-serif;
 }
-html[data-platform="windows"] .topbar > .traffic-space { display: none; }
-html[data-glass="on"][data-platform="windows"] .drag-strip { display: none; }
+:root[data-platform="windows"] body { font-family: inherit; }
+:root[data-platform="windows"] :is(button, input, select, textarea) { font-family: inherit; }
+
+/* Mica is a calm tone taken from the wallpaper, so it paints as one flat
+   colour instead of the Apple-style gradient. */
+:root[data-platform="windows"] { --win-ring: 0px; background: var(--win-mica); background-image: none; }
+:root[data-platform="windows"]::before { display: none; }
+:root[data-platform="windows"] body { background: transparent; }
+
+/* The main window has no system frame and Mica behind it. It shows in the strip
+   around the app, in the gaps between its cards and in the navigation pane, which
+   adds only a trace of the theme's colour, as more would hide the material. The
+   rest is solid, and a maximised window has no strip. */
+@media (min-width: 901px) {
+  :root[data-platform="windows"] .app {
+    margin: var(--win-ring);
+    height: calc(100% - 2 * var(--win-ring));
+    gap: 8px;
+  }
+  :root[data-platform="windows"][data-window="main"][data-glass="on"] { background: transparent; }
+  :root[data-platform="windows"][data-window="main"]:not([data-filled]) { --win-ring: 8px; }
+  /* Faint text is made for solid paper; on Mica it needs the stronger colour. */
+  :root[data-platform="windows"] .sidebar { --faint: var(--dim); }
+  :root[data-platform="windows"] .panes { gap: 8px; padding: 0; }
+  :root[data-platform="windows"][dir="rtl"] .panes { padding: 0; }
+  :root[data-platform="windows"] .app:has(.sidebar.is-hidden) .panes { padding: 0; }
+  :root[data-platform="windows"] .sidebar.is-hidden { margin-inline-end: -8px; }
+  :root[data-platform="windows"] :is(.topbar, .sidebar, .list, .editor, .info) {
+    border: 1px solid var(--win-stroke);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  :root[data-platform="windows"] .topbar { background: var(--win-mica); flex: none; }
+  :root[data-platform="windows"] .sidebar { background: var(--win-mica); }
+  :root[data-platform="windows"][data-window="main"][data-glass="on"] .sidebar {
+    background: color-mix(in srgb, var(--sidebar) 18%, transparent);
+  }
+  /* Scrims stop at the app's edge, so the strip stays clear behind a dialog. */
+  :root[data-platform="windows"] :is(.modal, .welcome) { inset: var(--win-ring); border-radius: 8px; }
+  :root[data-platform="windows"][data-filled] :is(.modal, .welcome) { border-radius: 0; }
+}
+
+@media (min-width: 901px) and (prefers-reduced-transparency: reduce) {
+  :root[data-platform="windows"][data-window="main"][data-glass="on"] { background: var(--win-mica); }
+  :root[data-platform="windows"][data-window="main"][data-glass="on"] .sidebar { background: var(--win-mica); }
+}
+
+/* Caption buttons: wide and flat, reaching the corner, with a red Close. */
+:root[data-platform="windows"][data-window="main"] .win-controls {
+  display: flex;
+  align-self: flex-start;
+  margin: 0 -8px 0 6px;
+  height: 100%;
+}
+:root[data-platform="windows"] .win-controls button {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 32px;
+  border-radius: 0;
+  color: var(--text);
+  transition: background-color 83ms linear;
+}
+:root[data-platform="windows"] .win-controls svg { width: 10px; height: 10px; fill: none; stroke: currentColor; stroke-width: 1; }
+:root[data-platform="windows"] .win-controls button:hover { background: var(--win-subtle); }
+:root[data-platform="windows"] .win-controls #win-close:hover { background: #c42b1c; color: #fff; }
+:root[data-platform="windows"].window-inactive .win-controls button { opacity: 0.55; }
+
+:root[data-platform="windows"] :is(button, .row, .card, label, select, summary) { cursor: default; }
+:root[data-platform="windows"] a { cursor: pointer; }
+
+/* ----------------------------------------------------------- command bar */
+
+:root[data-platform="windows"] .topbar {
+  height: 48px;
+  margin: 0;
+  padding: 0 8px 0 8px;
+  gap: 2px;
+  background-image: none;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+:root[data-platform="windows"] .topbar > .traffic-space,
+:root[data-platform="windows"] .drag-strip { display: none; }
+
+:root[data-platform="windows"] :is(.topbar, .editor-tools, .list-head, .editor-foot) .icon {
+  width: 36px;
+  height: 32px;
+  border-radius: 4px;
+  color: var(--text);
+  transition: background-color 83ms linear;
+}
+:root[data-platform="windows"] :is(.topbar, .editor-tools, .list-head, .editor-foot) .icon:hover { background: var(--win-subtle); color: var(--text); }
+:root[data-platform="windows"] :is(.topbar, .editor-tools, .list-head, .editor-foot) .icon:active { background: var(--win-subtle-2); transform: none; opacity: 0.75; }
+:root[data-platform="windows"] :is(.topbar, .editor-tools, .list-head) .icon.on { background: var(--win-subtle); color: var(--accent); }
+
+/* A text field: faint stroke, darker bottom edge, which turns into a two
+   pixel accent line on focus. */
+:root[data-platform="windows"] .search-box,
+:root[data-platform="windows"] :is(.sheet input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), .dialog-input, .select, .settings-pages select) {
+  border: 1px solid var(--win-stroke);
+  border-bottom-color: var(--win-stroke-strong);
+  border-radius: 4px;
+  background: var(--win-control);
+  box-shadow: none;
+  font-size: 14px;
+}
+:root[data-platform="windows"] .search-box { height: 32px; margin-inline: 6px; }
+:root[data-platform="windows"] .search-box:focus-within,
+:root[data-platform="windows"] :is(.sheet input, .dialog-input):focus {
+  border-color: var(--win-stroke);
+  border-bottom: 2px solid var(--accent);
+  background: var(--editor);
+  box-shadow: none;
+}
+:root[data-platform="windows"] .sheet input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) { min-height: 32px; padding: 4px 10px; }
+
+
+
+/* ----------------------------------------------------------------- panes */
+
+:root[data-platform="windows"] .panes > * + * { border: 0; }
+
+/* Navigation pane: its surface is set with the clear strip, above. */
+:root[data-platform="windows"] .sidebar {
+  margin: 0;
+  background-image: none;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+:root[data-platform="windows"] .sidebar .pane-head { border: 0; padding: 0 8px 0 14px; }
+:root[data-platform="windows"] .sidebar-scroll { padding: 2px 4px 12px; }
+
+:root[data-platform="windows"] .row {
+  position: relative;
+  min-height: 36px;
+  padding: 4px 12px;
+  gap: 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: background-color 83ms linear;
+}
+:root[data-platform="windows"] .sidebar .row:hover { background: var(--win-subtle); }
+:root[data-platform="windows"] .sidebar .row:active { background: var(--win-subtle-2); }
+:root[data-platform="windows"] .sidebar .links .row { color: var(--text); }
+:root[data-platform="windows"] .sidebar .row.active {
+  background: var(--win-subtle);
+  color: var(--text);
+  box-shadow: none;
+}
+:root[data-platform="windows"] .sidebar .row .glyph,
+:root[data-platform="windows"] .sidebar .row.active .glyph { color: var(--text); }
+
+/* The Fluent selection pill. It grows in from the middle of the row. */
+:root[data-platform="windows"] :is(.sidebar .row.active, .card.active, .settings-tabs button.active)::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  top: 50%;
+  width: 3px;
+  height: 16px;
+  margin-top: -8px;
+  border-radius: 2px;
+  background: var(--accent);
+  animation: win-pill 167ms var(--ease-win);
+}
+@keyframes win-pill { from { transform: scaleY(0); } }
+
+:root[data-platform="windows"] .section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0;
+}
+:root[data-platform="windows"] .section-title .tiny { color: var(--text); }
+:root[data-platform="windows"] .space-button:hover { background: var(--win-subtle); }
+
+/* The content layer: list and note are separate cards with Mica between them. */
+:root[data-platform="windows"] .list,
+:root[data-platform="windows"] .editor,
+:root[data-platform="windows"] .info {
+  margin: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  background-image: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  overflow: hidden;
+}
+:root[data-platform="windows"] .list { background: var(--list); }
+:root[data-platform="windows"] .editor { background: var(--editor); }
+:root[data-platform="windows"] .info { background: var(--list); }
+
+:root[data-platform="windows"] .pane-head { border-bottom: 1px solid var(--win-stroke); }
+:root[data-platform="windows"] .list-head h2 { font-size: 14px; font-weight: 600; }
+
+:root[data-platform="windows"] .cards { padding: 4px; gap: 2px; }
+:root[data-platform="windows"] .card {
+  position: relative;
+  padding: 8px 12px;
+  border-radius: 4px;
+  transition: background-color 83ms linear;
+}
+:root[data-platform="windows"] .card:hover { background: var(--win-subtle-2); }
+:root[data-platform="windows"] .card.active { background: var(--win-subtle); box-shadow: none; }
+:root[data-platform="windows"] .card .name { font-size: 14px; font-weight: 600; }
+
+:root[data-platform="windows"] .title { font-size: 28px; font-weight: 600; }
+
+/* Format toolbar: a flyout-style surface over the note. */
+:root[data-platform="windows"] .editor-dock {
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  border-radius: 8px;
+  background-image: none;
+  border: 1px solid var(--win-stroke);
+  box-shadow: var(--win-flyout);
+}
+:root[data-platform="windows"] .editor-dock .format-bar button { border-radius: 4px; }
+:root[data-platform="windows"] .editor-dock .format-bar button:hover,
+:root[data-platform="windows"] .editor-dock .icon:hover { background: var(--win-subtle); }
+
+/* --------------------------------------------------------------- dialogs */
+
+:root[data-platform="windows"] .modal:not(#lock-screen) {
+  background: rgba(0, 0, 0, 0.3);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+:root[data-platform="windows"] .modal:not(#lock-screen) .sheet,
+:root[data-platform="windows"] .decision-sheet,
+:root[data-platform="windows"] .formula-sheet {
+  background-color: var(--editor);
+  background-image: none;
+  border: 1px solid var(--win-stroke);
+  border-radius: 8px;
+  box-shadow: var(--win-dialog);
+  animation: win-dialog 250ms var(--ease-win);
+}
+@keyframes win-dialog { from { opacity: 0; transform: scale(1.05); } }
+:root[data-platform="windows"] .sheet h3 { font-size: 20px; font-weight: 600; }
+
+/* Settings, as the Windows Settings app: navigation with the pill, then one
+   card per option with a toggle at its end. */
+:root[data-platform="windows"] .sheet.wide .settings-tabs {
+  padding: 8px 4px;
+  border: 0;
+  background: var(--win-mica);
+}
+:root[data-platform="windows"] .settings-tabs button {
+  position: relative;
+  min-height: 36px;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  color: var(--text);
+}
+:root[data-platform="windows"] .settings-tabs button:hover { background: var(--win-subtle); color: var(--text); }
+:root[data-platform="windows"] .settings-tabs button.active { background: var(--win-subtle); color: var(--text); }
+
+:root[data-platform="windows"] .settings-pages h3 { font-size: 20px; font-weight: 600; }
+:root[data-platform="windows"] .settings-pages h4 {
+  margin: 20px 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text);
+}
+:root[data-platform="windows"] .settings-pages label:not(.check) { font-size: 14px; color: var(--text); }
+
+:root[data-platform="windows"] .settings-pages :is(.check, .option-row) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 48px;
+  margin: 0 0 4px;
+  padding: 8px 16px;
+  border: 1px solid var(--win-stroke);
+  border-radius: 4px;
+  background: var(--win-subtle-2);
+  font-size: 14px;
+  color: var(--text);
+}
+:root[data-platform="windows"] .settings-pages .check { flex-direction: row-reverse; }
+/* A run of cards keeps its distance from the fields above and below it. */
+:root[data-platform="windows"] .settings-pages :is(.check, .option-row):not(:is(.check, .option-row) + *) { margin-top: 12px; }
+:root[data-platform="windows"] .settings-pages :is(.check, .option-row):not(:has(+ :is(.check, .option-row))) { margin-bottom: 12px; }
+
+:root[data-platform="windows"] .settings-pages .check input[type="checkbox"] {
+  -webkit-appearance: none;
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 40px;
+  height: 20px;
+  margin: 0;
+  border: 1px solid var(--win-stroke-strong);
+  border-radius: 10px;
+  background: transparent;
+  transition: background-color 83ms linear;
+}
+:root[data-platform="windows"] .settings-pages .check input[type="checkbox"]::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  inset-inline-start: 3px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--dim);
+  transition: inset-inline-start 167ms var(--ease-win), transform 83ms linear;
+}
+:root[data-platform="windows"] .settings-pages .check input[type="checkbox"]::after { content: none; }
+:root[data-platform="windows"] .settings-pages .check input[type="checkbox"]:hover::before { transform: scale(1.15); }
+:root[data-platform="windows"] .settings-pages .check input[type="checkbox"]:checked { background: var(--accent); border-color: var(--accent); }
+:root[data-platform="windows"] .settings-pages .check input[type="checkbox"]:checked::before { inset-inline-start: 23px; background: #fff; }
+
+
+/* Action rows wrap whole buttons, rather than wrapping the words inside them. */
+:root[data-platform="windows"] .settings-pages .modal-row { flex-wrap: wrap; }
+:root[data-platform="windows"] .settings-pages .modal-row + h4 { margin-top: 22px; }
+
+/* --------------------------------------------------------------- flyouts */
+
+:root[data-platform="windows"] :is(.context-menu, .slash-menu, .text-style-pop, .table-tools, .palette, .find-bar) {
+  border: 1px solid var(--win-stroke);
+  border-radius: 8px;
+  background-image: none;
+  background-color: color-mix(in srgb, var(--editor) 88%, transparent);
+  -webkit-backdrop-filter: blur(30px) saturate(125%);
+  backdrop-filter: blur(30px) saturate(125%);
+  box-shadow: var(--win-flyout);
+}
+:root[data-platform="windows"] .context-menu { padding: 4px; }
+:root[data-platform="windows"] .context-menu button {
+  min-height: 32px;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+}
+:root[data-platform="windows"] .context-menu button:hover { background: var(--win-subtle); }
+:root[data-platform="windows"] .context-menu .menu-sep { background: var(--win-stroke); margin: 3px -4px; }
+
+:root[data-platform="windows"] .toast { border-radius: 8px; }
+
+/* --------------------------------------------------------------- buttons */
+
+/* Every text button on Windows is the same 32px Fluent button with small corners.
+   The two ids get their own selector because the shared rules style them by
+   id; in one list, that id weight would beat the danger and link colours. */
+:root[data-platform="windows"] button:is(.primary, .ghost, .export-go),
+:root[data-platform="windows"] .sync-actions button:is(#s-connect, #s-save),
+:root[data-platform="windows"] .theme-chip,
+:root[data-platform="windows"] .segmented button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--win-stroke);
+  border-radius: 4px;
+  background: var(--win-control);
+  background-image: none;
+  box-shadow: none;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 400;
+  white-space: nowrap;
+  text-decoration: none;
+}
+:root[data-platform="windows"] button:is(.primary, .ghost, .export-go):hover,
+:root[data-platform="windows"] .sync-actions button:is(#s-connect, #s-save):hover,
+:root[data-platform="windows"] .theme-chip:hover,
+:root[data-platform="windows"] .segmented button:not(.active):hover {
+  background: var(--win-subtle);
+  border-color: var(--win-stroke);
+  color: var(--text);
+  filter: none;
+  text-decoration: none;
+}
+:root[data-platform="windows"] button:is(.primary, .ghost, .export-go):active,
+:root[data-platform="windows"] .theme-chip:active { opacity: 0.8; transform: none; }
+
+/* One filled action per place: the accent, otherwise the same button. */
+:root[data-platform="windows"] button.primary,
+:root[data-platform="windows"] .sync-actions button#s-connect,
+:root[data-platform="windows"] .theme-chip.on {
+  border-color: transparent;
+  background: var(--accent);
+  color: #fff;
+}
+:root[data-platform="windows"] button.primary:hover,
+:root[data-platform="windows"] .sync-actions button#s-connect:hover,
+:root[data-platform="windows"] .theme-chip.on:hover {
+  border-color: transparent;
+  background: var(--accent);
+  color: #fff;
+  filter: brightness(1.08);
+}
+
+:root[data-platform="windows"] button.ghost.danger { color: var(--danger); }
+:root[data-platform="windows"] button.ghost.danger:hover { color: var(--danger); }
+/* The sheet keeps one size, so moving between pages doesn't make it jump. */
+@media (min-width: 901px) {
+  :root[data-platform="windows"] #settings-modal .sheet.wide { height: min(620px, 86vh); }
+  :root[data-platform="windows"] #settings-modal .settings-body { flex: 1; min-height: 0; }
+}
+
+/* A row's own Delete stays quiet: it is a link beside a field, not an action. */
+:root[data-platform="windows"] .nb-row button.ghost,
+:root[data-platform="windows"] .nb-row button.ghost:hover {
+  height: auto;
+  min-height: 0;
+  padding: 4px 8px;
+  border: 0;
+  background: transparent;
+  color: var(--danger);
+}
+
+/* The modes are one control made of those same buttons, selected like a chip. */
+:root[data-platform="windows"] .segmented {
+  display: inline-flex;
+  gap: 0;
+  padding: 2px;
+  border: 1px solid var(--win-stroke);
+  border-radius: 6px;
+  background: var(--win-control);
+}
+:root[data-platform="windows"] .segmented button {
+  height: 26px;
+  min-height: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+}
+:root[data-platform="windows"] .segmented button.active {
+  border: 0;
+  background: var(--accent);
+  color: #fff;
+  box-shadow: none;
+}
+
+:root[data-platform="windows"] .theme-row { gap: 6px; }
+:root[data-platform="windows"] .settings-pages .modal-row { flex-wrap: wrap; gap: 8px; }
+:root[data-platform="windows"] .topbar > #new-note { flex: none; }
+
+/* The Fluent focus rectangle: two rings, so it shows on any surface. */
+:root[data-platform="windows"] :is(button, .row, .card, .theme-chip):focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+}
+
+:root[data-platform="windows"] ::-webkit-scrollbar { width: 12px; height: 12px; }
+:root[data-platform="windows"] ::-webkit-scrollbar-thumb {
+  border: 4px solid transparent;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--text) 35%, transparent) padding-box;
+}
+:root[data-platform="windows"] ::-webkit-scrollbar-thumb:hover { border-width: 3px; }
+:root[data-platform="windows"] ::-webkit-scrollbar-track { background: transparent; }
+
+/* An unfocused window loses its accent, and Mica goes flat. */
+:root[data-platform="windows"].window-inactive :is(.sidebar .row.active, .card.active, .settings-tabs button.active)::before { background: var(--win-stroke-strong); }
+:root[data-platform="windows"].window-inactive .topbar .icon { opacity: 0.6; }
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-platform="windows"] :is(.sidebar .row.active, .card.active, .settings-tabs button.active)::before { animation: none; }
+  :root[data-platform="windows"] :is(.modal .sheet, .decision-sheet, .formula-sheet) { animation: none; }
+}

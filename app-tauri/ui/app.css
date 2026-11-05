@@ -1291,14 +1291,16 @@ html[data-glass="on"] .editor-dock .format-bar.is-scrollable.at-start.at-end {
 
 /* ------------------------------------------------------------ export sheet */
 
-.export-sheet { width: 520px; padding: 0; }
-.export-title { text-align: center; margin: 14px 0 6px; font-size: 15px; font-weight: 600; }
-.export-row { padding: 12px 18px; border-top: 1px solid var(--border); }
-.export-row.column { display: flex; flex-direction: column; gap: 8px; }
+.export-sheet { width: 520px; max-height: 94vh; padding: 0; }
+.export-sheet > .modal-row { margin: 0; padding: 12px 18px 16px; border-top: 1px solid var(--border); }
+.sheet .export-title { text-align: center; margin: 16px 0 12px; font-size: 15px; font-weight: 600; }
+.export-row { display: flex; align-items: center; padding: 12px 18px; border-top: 1px solid var(--border); }
+.export-row.column { flex-direction: column; align-items: stretch; gap: 8px; }
 .export-line { display: flex; align-items: center; }
 .export-name { flex: 1; font-size: 13px; }
 .export-go { color: var(--accent); font-size: 13px; }
 .export-go:hover { text-decoration: underline; }
+.sheet label.export-option { display: flex; margin-bottom: 0; }
 .export-option { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 12.5px; color: var(--dim); }
 .export-option .select { width: 180px; margin-top: 0; }
 .export-option.check { justify-content: flex-start; align-items: flex-start; color: var(--dim); line-height: 1.45; }
@@ -1854,6 +1856,8 @@ kbd {
 
 .body ul.checklist { list-style: none; padding-inline-start: 4px; }
 .body ul.checklist li::marker { content: none; }
+/* This list has no bullet gutter, so the box has nothing to hang into. */
+.body ul.checklist li:has(> input[type="checkbox"]) { margin-inline-start: 0; }
 .body input[type="checkbox"] { accent-color: var(--accent); margin-inline-end: 6px; vertical-align: -1px; }
 .body li.done { color: var(--faint); text-decoration: line-through; }
 
@@ -1903,6 +1907,8 @@ body.rtl .info { border-left: none; border-right: 1px solid var(--border); }
 .body th,
 .body summary,
 .title { unicode-bidi: plaintext; }
+/* A Latin preview in a right-to-left list must lose its end, not its start. */
+[dir="rtl"] .card .preview { unicode-bidi: plaintext; text-align: right; }
 
 /* A block that was given a direction by hand keeps it. */
 .body [dir="rtl"] { text-align: right; }
@@ -2573,6 +2579,17 @@ html[data-glass="off"] .modal:not(#lock-screen) .sheet { animation: motion-pop 2
 /* Sheets inside Settings change page with a small slide. */
 .settings-pages section:not([hidden]) { animation: motion-page 220ms var(--ease); }
 
+/* On desktop, the incoming section follows the tab direction: moving down
+   the tab strip comes from the right, moving up comes from the left. Phones
+   keep the quieter fade above. */
+html[data-mobile="false"] .settings-pages[data-motion] section:not([hidden]) {
+  animation: settings-page 240ms var(--ease);
+}
+.settings-pages[data-motion="forward"] { --settings-page-from: 16px; }
+.settings-pages[data-motion="back"] { --settings-page-from: -16px; }
+[dir="rtl"] .settings-pages[data-motion="forward"] { --settings-page-from: -16px; }
+[dir="rtl"] .settings-pages[data-motion="back"] { --settings-page-from: 16px; }
+
 /* The inspector slides in instead of appearing. */
 .info:not([hidden]) { animation: motion-panel 220ms var(--ease); }
 
@@ -2625,6 +2642,10 @@ html[data-glass="off"] .modal:not(#lock-screen) .sheet { animation: motion-pop 2
 
 @keyframes motion-page {
   from { opacity: 0; transform: translateY(5px); }
+}
+
+@keyframes settings-page {
+  from { opacity: 0; transform: translateX(var(--settings-page-from, 16px)); }
 }
 
 @keyframes motion-panel {
@@ -2741,7 +2762,7 @@ html[data-glass="on"] .sidebar.is-hidden {
   flex: 0 0 0;
 }
 
-.pane-grip { display: none; }
+.pane-grip { display: none; border: 0 !important; }
 html[data-glass="on"] .pane-grip {
   display: block;
   position: absolute;
@@ -2845,6 +2866,9 @@ html[data-glass="on"] .sync-actions #s-save {
 }
 .sync-actions #s-save:hover { background: var(--hover); }
 
+
+/* Only the frameless desktops show these. */
+.win-controls { display: none; }
 
 /* Mobile-only controls stay out of the desktop layout. */
 .mobile-back,

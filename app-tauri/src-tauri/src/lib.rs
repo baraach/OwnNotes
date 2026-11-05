@@ -2397,6 +2397,11 @@ pub fn run() {
     let attachment_root: Arc<Mutex<std::path::PathBuf>> = Arc::new(Mutex::new(Default::default()));
     let setup_root = Arc::clone(&attachment_root);
 
+    #[allow(unused_mut)]
+    let mut context = tauri::generate_context!();
+    #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+    platform::prepare_context(&mut context);
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .setup(move |app| {
@@ -2519,6 +2524,6 @@ pub fn run() {
             remove_note_lock,
             unsynced
         ])
-        .run(tauri::generate_context!())
+        .run(context)
         .expect("OwnNotes failed to start");
 }

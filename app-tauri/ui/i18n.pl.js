@@ -56,6 +56,8 @@ STRINGS.pl = {
   "Find in note": "Szukaj w notatce",
   "Next": "Dalej",
   "Close": "Zamknij",
+  "Minimize": "Minimalizuj",
+  "Maximize": "Maksymalizuj",
   "words": "słów",
 
   // note menu

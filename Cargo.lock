@@ -2635,6 +2635,7 @@ name = "ownnotes-tauri"
 version = "1.0.0"
 dependencies = [
  "chrono",
+ "gtk",
  "ownnotes-core",
  "percent-encoding",
  "serde",

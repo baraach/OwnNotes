@@ -9,7 +9,60 @@ pub fn data_dir<R: Runtime>(_app: &App<R>) -> PathBuf {
     ownnotes_core::store::data_dir()
 }
 
+/// The main window is see-through and has no system frame, so the strip around
+/// the app shows the desktop on every side. The page draws the window buttons.
+/// Set here because the same config builds the other platforms.
+pub fn prepare_context<R: Runtime>(context: &mut tauri::Context<R>) {
+    if let Some(window) = context.config_mut().app.windows.first_mut() {
+        window.transparent = true;
+        window.decorations = false;
+        window.shadow = false;
+    }
+}
+
+/// Tell the page whether the desktop can draw see-through windows. Without a
+/// compositor the clear gaps come out black, so the page paints them instead.
+/// The page starts painted and hears the answer once it has loaded, and again
+/// if the desktop turns its compositor on or off while the app is open.
+fn follow_compositor<R: Runtime>(app: &App<R>) {
+    use gtk::prelude::WidgetExt;
+
+    fn material(composited: bool) -> String {
+        let value = if composited { "on" } else { "off" };
+        format!("document.documentElement.dataset.material = '{value}'")
+    }
+
+    let Some(window) = app.get_webview_window("main") else {
+        return;
+    };
+    let Some(screen) = window.gtk_window().ok().and_then(|gtk_window| gtk_window.screen()) else {
+        return;
+    };
+    let _ = app.handle().plugin(
+        tauri::plugin::Builder::<R, ()>::new("compositor")
+            .on_page_load(move |webview, payload| {
+                if webview.label() == "main"
+                    && matches!(payload.event(), tauri::webview::PageLoadEvent::Finished)
+                {
+                    if let Some(screen) = webview
+                        .window()
+                        .gtk_window()
+                        .ok()
+                        .and_then(|gtk_window| gtk_window.screen())
+                    {
+                        let _ = webview.eval(material(screen.is_composited()));
+                    }
+                }
+            })
+            .build(),
+    );
+    screen.connect_composited_changed(move |screen| {
+        let _ = window.eval(material(screen.is_composited()));
+    });
+}
+
 pub fn restore_window<R: Runtime>(app: &App<R>) {
+    follow_compositor(app);
     let dir = ownnotes_core::store::data_dir();
     let Some((x, y, w, h)) = crate::extras::load(&dir).window else {
         return;

@@ -56,6 +56,8 @@ STRINGS.es = {
   "Find in note": "Buscar en la nota",
   "Next": "Siguiente",
   "Close": "Cerrar",
+  "Minimize": "Minimizar",
+  "Maximize": "Maximizar",
   "words": "palabras",
 
   // note menu

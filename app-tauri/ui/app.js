@@ -22,6 +22,12 @@ const $ = (id) => document.getElementById(id);
 /** Macs use Command; Windows and Linux use Ctrl. */
 const PLATFORM = document.documentElement.dataset.platform || "mac";
 const IS_MAC = PLATFORM === "mac";
+// The Mac toolbar row runs across these, so their empty space moves the window.
+if (IS_MAC) {
+  for (const el of document.querySelectorAll(".sidebar .pane-head, .editor-tools")) {
+    el.setAttribute("data-tauri-drag-region", "");
+  }
+}
 
 function modKey(event) {
   return IS_MAC ? event.metaKey : event.ctrlKey;
@@ -1645,8 +1651,30 @@ async function saveNow() {
   note.body = body;
   state.shownBody = body;
   state.shownHTML = $("body").innerHTML;
+  note.preview = bodyPreview(title);
+  paintActiveCard(note);
   await invoke("save_note", { id: note.id, title, body });
   updateWords();
+}
+
+/** What the list shows for the open note, the way `Note::preview` builds it. */
+function bodyPreview(title) {
+  const lowered = title.trim().toLowerCase();
+  const lines = ($("body").innerText || "")
+    .split("\n")
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter((line) => line && line.toLowerCase() !== lowered);
+  return lines.slice(0, 3).join("  ") || "No additional text";
+}
+
+/** Keep the open note's row in step with typing, without rebuilding the list. */
+function paintActiveCard(note) {
+  const card = document.querySelector(".card.active");
+  if (!card) return;
+  const name = card.querySelector(".name");
+  const preview = card.querySelector(".preview");
+  if (name) name.textContent = note.title.trim() || t("Untitled");
+  if (preview) preview.textContent = note.preview;
 }
 
 /** The editor's HTML as it is saved (attachment links in their stored form). */
@@ -2284,7 +2312,9 @@ $("new-note").addEventListener("click", async () => {
   const id = await invoke("create_note", { notebookId: notebook, space: state.space });
   await refresh();
   state.current = id;
-  state.view = { kind: "notebook", id: notebook };
+  // All Notes shows the new note anyway, so it stays where it is. A filtered
+  // list might not, so that one moves to the notebook holding the note.
+  if (state.view.kind !== "all") state.view = { kind: "notebook", id: notebook };
   render();
   if (isMobile()) openMobileEditor();
   $("title").focus();
@@ -2684,7 +2714,12 @@ function renderSettings() {
     accents.appendChild(dot);
   });
 
-  $("t-glass").checked = pref("glass", true);
+  const glassBox = $("t-glass");
+  if (glassBox) {
+    glassBox.checked = PLATFORM !== "linux" && pref("glass", true);
+    const glassRow = glassBox.closest("label");
+    if (glassRow) glassRow.hidden = PLATFORM === "linux";
+  }
 
   $("g-counts").checked = state.prefs.show_counts !== false;
   $("g-compact").checked = !!state.prefs.compact_list;
@@ -2750,12 +2785,20 @@ let activeTab = "sync";
 // Phones open Settings on a list of its pages; a deep link clears this first.
 let settingsAtRoot = true;
 
-for (const button of document.querySelectorAll(".settings-tabs button")) {
+const settingsTabs = [...document.querySelectorAll(".settings-tabs button")];
+const settingsPages = document.querySelector(".settings-pages");
+for (const button of settingsTabs) {
   button.addEventListener("click", () => {
+    const from = settingsTabs.findIndex((tab) => tab.dataset.tab === activeTab);
+    const to = settingsTabs.indexOf(button);
+    if (to === from) return;
+    // Desktops slide the new sheet in from the side the tab sits on; the
+    // platform layers decide how much motion to keep.
+    if (settingsPages) settingsPages.dataset.motion = to > from ? "forward" : "back";
     activeTab = button.dataset.tab;
     settingsAtRoot = false;
     renderSettings();
-    document.querySelector(".settings-pages").scrollTop = 0;
+    if (settingsPages) settingsPages.scrollTop = 0;
     syncMobileBack();
   });
 }
@@ -2855,6 +2898,8 @@ $("g-language").addEventListener("change", () => setLanguage($("g-language").val
 async function setLanguage(code) {
   await setUiPref("lang", code);
   applyLanguageState(code);
+  // The panes swap sides without changing size, so nothing else moves the grips.
+  requestAnimationFrame(positionGrips);
   // The chrome is rebuilt so every string and panel follows at once.
   for (const button of document.querySelectorAll(".settings-tabs button")) {
     if (button.dataset.en) button.textContent = t(button.dataset.en);
@@ -3068,10 +3113,10 @@ function applyTheme() {
   syncWindowTheme();
 }
 
-/** Windows and Linux draw the native title bar above our toolbar; ask it to
- *  follow the app theme. macOS keeps its own traffic-light appearance. */
+/** Keep the native window parts on the app's theme: the title bar on Windows
+ *  and Linux, the traffic lights and sidebar material on macOS. */
 function syncWindowTheme() {
-  if (IS_MAC || PLATFORM === "ios" || PLATFORM === "android") return;
+  if (PLATFORM === "ios" || PLATFORM === "android") return;
   try {
     const win = window.__TAURI__?.window?.getCurrentWindow?.();
     if (!win || typeof win.setTheme !== "function") return;
@@ -3087,9 +3132,10 @@ function syncWindowTheme() {
   } catch {}
 }
 
-/** The modern interface is a taste; Settings › Themes keeps it, the CSS does the work. */
+/** Linux always uses solid surfaces; other platforms keep the glass taste. */
 function applyGlass() {
-  document.documentElement.dataset.glass = pref("glass", true) ? "on" : "off";
+  const glass = PLATFORM !== "linux" && pref("glass", true);
+  document.documentElement.dataset.glass = glass ? "on" : "off";
 }
 
 /** Light / Dark / System, or one of the named palettes. */
@@ -4547,7 +4593,24 @@ function windowNote() {
   render();
 }
 
+/** The main desktop window: its own buttons, and no clear strip once it fills the screen. */
+function bindDesktopWindow() {
+  if (document.documentElement.dataset.window !== "main") return;
+  const win = window.__TAURI__?.window?.getCurrentWindow?.();
+  if (!win) return;
+  $("win-min").addEventListener("click", () => win.minimize());
+  $("win-max").addEventListener("click", () => win.toggleMaximize());
+  $("win-close").addEventListener("click", () => win.close());
+  const paint = async () => {
+    const filled = await Promise.all([win.isMaximized(), win.isFullscreen()]).catch(() => [false, false]);
+    document.documentElement.toggleAttribute("data-filled", filled.some(Boolean));
+  };
+  window.addEventListener("resize", paint);
+  paint();
+}
+
 async function boot() {
+  bindDesktopWindow();
   await loadUiPrefs();
   applyGlass();
   readPaneWidths();
@@ -4683,7 +4746,7 @@ function applyPaneWidths() {
 
 /** Keep each grip over the gap between the panes it resizes. */
 function positionGrips() {
-  if (document.documentElement.dataset.glass !== "on") return;
+  if (document.documentElement.dataset.glass !== "on" && PLATFORM !== "linux") return;
   if (isMobile()) {
     for (const grip of document.querySelectorAll(".pane-grip")) grip.style.display = "none";
     return;
@@ -4710,9 +4773,12 @@ function positionGrips() {
 
   const sidebarShown = !sidebar.classList.contains("is-hidden") && s.width > 2;
   const listShown = !document.body.classList.contains("focus") && l.width > 2;
-  place("sidebar", (s.right + l.left) / 2, sidebarShown);
-  place("list", (l.right + e.left) / 2, listShown);
-  place("info", (e.right + i.left) / 2, !info.hidden && !info.classList.contains("is-closing") && i.width > 2);
+  // Right to left, each pane sits to the left of the one before it.
+  const rtl = document.documentElement.dir === "rtl";
+  const between = (a, b) => (rtl ? (a.left + b.right) / 2 : (a.right + b.left) / 2);
+  place("sidebar", between(s, l), sidebarShown);
+  place("list", between(l, e), listShown);
+  place("info", between(e, i), !info.hidden && !info.classList.contains("is-closing") && i.width > 2);
 }
 
 function savePaneWidths() {
@@ -4862,6 +4928,30 @@ window.addEventListener("keydown", (event) => {
   if (event.key.toLowerCase() === "n") {
     event.preventDefault();
     $("new-note").click();
+  }
+});
+
+// Escape dismisses the top desktop layer, as a native sheet or menu would.
+window.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape" || event.defaultPrevented || locked || isMobile()) return;
+  const popover = topMobilePopover();
+  if (popover) {
+    event.preventDefault();
+    if (popover.matches(".context-menu")) popover.remove();
+    else popover.hidden = true;
+    document.querySelector(".menu-scrim")?.remove();
+    return;
+  }
+  const modal = topMobileModal();
+  if (!modal) return;
+  event.preventDefault();
+  if (modal.id === "settings-modal") $("s-close")?.click();
+  else if (modal.id === "export-modal") $("export-close")?.click();
+  else if (modal.id === "history-modal") $("h-close")?.click();
+  else {
+    const close = modal.querySelector(".dialog-cancel, .formula-cancel");
+    if (close) close.click();
+    else modal.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
   }
 });
 

@@ -1,5 +1,666 @@
-/* macOS: the overlay title bar and traffic lights are configured in
-   tauri.macos.conf.json; the base layout is in app.css. Add macOS-only
-   corrections here. */
+/* macOS: a complete desktop design, following the macOS 26+ look.
 
-html[data-platform="mac"] { -webkit-tap-highlight-color: transparent; }
+   The sidebar floats as a piece of real system material, and the traffic
+   lights sit inside it. List and note run to the window's edges, under one
+   toolbar row of capsules. The overlay title bar is configured in
+   tauri.macos.conf.json; platform/macos.rs puts the material behind the page.
+   Nothing here can reach another platform: every rule is scoped to "mac". */
+
+:root[data-platform="mac"] {
+  --mac-capsule: color-mix(in srgb, var(--text) 6%, transparent);
+  --mac-hover: color-mix(in srgb, var(--text) 8%, transparent);
+  --mac-press: color-mix(in srgb, var(--text) 14%, transparent);
+  --mac-line: color-mix(in srgb, var(--text) 10%, transparent);
+  --mac-toolbar: 52px;
+  --mac-sidebar-fill: var(--sidebar);
+  --mac-select: color-mix(in srgb, var(--accent) 18%, transparent);
+  --ease-mac: cubic-bezier(0.25, 0.9, 0.3, 1);
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ---------------------------------------------------------- frosted glass */
+
+/* The main window has system material behind it. It shows in the strip around
+   the app, in the gaps between its cards and in the sidebar; list and note stay
+   solid. The blur is what keeps text readable; the sidebar only adds a trace of
+   the theme's colour, as more would hide the glass. Every other window has a
+   normal frame and is plain. */
+:root[data-platform="mac"] { --mac-ring: 0px; background: var(--sidebar); background-image: none; }
+:root[data-platform="mac"]::before { display: none; }
+:root[data-platform="mac"] body { background: transparent; }
+
+@media (min-width: 901px) {
+  :root[data-platform="mac"][data-window="main"] {
+    --mac-sidebar-fill: color-mix(in srgb, var(--sidebar) 18%, transparent);
+    background: transparent;
+  }
+  :root[data-platform="mac"][data-window="main"]:not([data-filled]) { --mac-ring: 8px; }
+  /* Faint text is made for solid paper; on glass it needs the stronger colour. */
+  :root[data-platform="mac"] .sidebar { --faint: var(--dim); }
+  :root[data-platform="mac"] .app {
+    margin: var(--mac-ring);
+    height: calc(100% - 2 * var(--mac-ring));
+  }
+  /* Scrims stop at the app's edge, so the strip stays clear behind a sheet. */
+  :root[data-platform="mac"] :is(.modal, .welcome) { inset: var(--mac-ring); border-radius: 20px; }
+  :root[data-platform="mac"][data-filled] :is(.modal, .welcome) { border-radius: 0; }
+}
+
+/* Reduce Transparency, and Modern design off, both ask for solid surfaces. */
+@media (prefers-reduced-transparency: reduce) {
+  :root[data-platform="mac"][data-window="main"] { --mac-sidebar-fill: var(--sidebar); background: var(--sidebar); }
+}
+:root[data-platform="mac"][data-window="main"][data-glass="off"] { --mac-sidebar-fill: var(--sidebar); background: var(--sidebar); }
+
+/* A Mac control does not turn the pointer into a hand. Chrome text is not
+   selectable, the note and its fields still are. */
+:root[data-platform="mac"] :is(button, .row, .card, label, select, summary) { cursor: default; }
+:root[data-platform="mac"] :is(.sidebar, .list, .editor-tools, .editor-foot, .settings-tabs) {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* --------------------------------------------------------------- toolbar */
+
+@media (min-width: 901px) {
+  :root[data-platform="mac"] .app { position: relative; }
+
+  :root[data-platform="mac"] .panes {
+    gap: 8px;
+    padding: 0;
+    height: 100%;
+  }
+
+  /* One row across list and note, floating over their top edge. */
+  :root[data-platform="mac"] .topbar {
+    position: absolute;
+    /* Lines up with the top of the list and note cards below it. */
+    top: 0;
+    inset-inline-start: calc(var(--pane-sidebar) + 8px);
+    inset-inline-end: 0;
+    z-index: 1;
+    height: var(--mac-toolbar);
+    margin: 0;
+    padding: 0 10px;
+    gap: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    background-image: none;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    transition: inset-inline-start 240ms var(--ease-mac);
+  }
+  :root[data-platform="mac"] .drag-strip { display: none; }
+
+  /* Windows drawn right to left keep their traffic lights on the left. */
+  :root[data-platform="mac"][dir="rtl"] .topbar { padding-left: 92px; }
+
+  :root[data-platform="mac"] .app:has(.sidebar.is-hidden) .topbar,
+  :root[data-platform="mac"] body.focus .topbar { inset-inline-start: 0; }
+
+  :root[data-platform="mac"] .topbar > .traffic-space { display: none; }
+  :root[data-platform="mac"] .app:has(.sidebar.is-hidden) .topbar > .traffic-space,
+  :root[data-platform="mac"] body.focus .topbar > .traffic-space {
+    display: block;
+    width: 112px;
+    flex: 0 0 112px;
+  }
+
+  /* Right to left, the lights are at the far end of the row, so nothing has
+     to step around them at the start. */
+  :root[data-platform="mac"][dir="rtl"] .app:has(.sidebar.is-hidden) .topbar > .traffic-space,
+  :root[data-platform="mac"][dir="rtl"] body.focus .topbar > .traffic-space {
+    width: 48px;
+    flex: 0 0 48px;
+  }
+
+  /* The sidebar button belongs to the sidebar while there is one. */
+  :root[data-platform="mac"] .topbar > #toggle-sidebar {
+    position: fixed;
+    top: calc(var(--mac-ring) + 12px);
+    inset-inline-start: calc(var(--mac-ring) + var(--pane-sidebar) - 38px);
+    z-index: 8;
+    transition: inset-inline-start 240ms var(--ease-mac);
+  }
+  :root[data-platform="mac"] .app:has(.sidebar.is-hidden) .topbar > #toggle-sidebar,
+  :root[data-platform="mac"] body.focus .topbar > #toggle-sidebar { inset-inline-start: calc(var(--mac-ring) + 84px); }
+  :root[data-platform="mac"][dir="rtl"] .app:has(.sidebar.is-hidden) .topbar > #toggle-sidebar { inset-inline-start: calc(var(--mac-ring) + 12px); }
+
+  /* Undo and redo live on the format bar and in the Edit menu; New Note is
+     the list's compose button. */
+  :root[data-platform="mac"] .topbar > :is(#undo, #redo, #new-note) { display: none; }
+
+  :root[data-platform="mac"] .topbar .search-box {
+    flex: 0 0 auto;
+    width: calc(var(--pane-list) - 20px);
+    height: 32px;
+    margin: 0;
+    border: 0;
+    border-radius: 16px;
+    background: var(--mac-capsule);
+    box-shadow: none;
+  }
+  /* The list title, count and its two buttons share the toolbar line. */
+  :root[data-platform="mac"] .app:has(.sidebar.is-hidden) .topbar .search-box {
+    width: max(110px, calc(var(--pane-list) - 132px));
+  }
+  :root[data-platform="mac"][dir="rtl"] .app:has(.sidebar.is-hidden) .topbar .search-box {
+    width: max(110px, calc(var(--pane-list) - 60px));
+  }
+  :root[data-platform="mac"] body.focus .topbar .search-box { display: none; }
+  :root[data-platform="mac"] .topbar .search-box:focus-within {
+    background: var(--editor);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 38%, transparent);
+  }
+
+  /* A row of icons reads as one capsule, not as separate buttons. */
+  :root[data-platform="mac"] .topbar .icon,
+  :root[data-platform="mac"] .editor-tools .icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 16px;
+    color: var(--text);
+    transition: background-color 120ms linear, opacity 160ms linear;
+  }
+  :root[data-platform="mac"] .topbar .icon:hover,
+  :root[data-platform="mac"] .editor-tools .icon:hover { background: var(--mac-hover); color: var(--text); }
+  :root[data-platform="mac"] .topbar .icon:active,
+  :root[data-platform="mac"] .editor-tools .icon:active { background: var(--mac-press); transform: none; }
+  :root[data-platform="mac"] .topbar .icon.on,
+  :root[data-platform="mac"] .editor-tools .icon.on { color: var(--accent); background: transparent; }
+
+  :root[data-platform="mac"] .topbar > :is(#sync-now, #lock, #sticky, #open-settings) { background: var(--mac-capsule); }
+  :root[data-platform="mac"] .topbar > :is(#lock, #sticky, #open-settings):hover { background: var(--mac-press); }
+  :root[data-platform="mac"] .topbar > #lock { border-radius: 16px 0 0 16px; margin-inline-start: 8px; }
+  :root[data-platform="mac"] .topbar > #sticky { border-radius: 0; }
+  :root[data-platform="mac"] .topbar > #open-settings { border-radius: 0 16px 16px 0; }
+  :root[data-platform="mac"][dir="rtl"] .topbar > #lock { border-radius: 0 16px 16px 0; }
+  :root[data-platform="mac"][dir="rtl"] .topbar > #open-settings { border-radius: 16px 0 0 16px; }
+
+  :root[data-platform="mac"] .topbar > .pill {
+    color: var(--dim);
+    margin-inline-start: 2px;
+  }
+
+  /* The note's own actions join the same row, directly over the note. */
+  :root[data-platform="mac"] .editor-tools {
+    position: absolute;
+    top: 10px;
+    inset-inline-start: 10px;
+    z-index: 2;
+    flex: none;
+    height: 32px;
+    padding: 0;
+    gap: 0;
+    border: 0;
+    border-radius: 16px;
+    background: var(--mac-capsule);
+  }
+  :root[data-platform="mac"] .editor-tools .spacer { display: none; }
+  :root[data-platform="mac"] body.focus .editor-tools { inset-inline-start: 124px; }
+
+  /* Narrow windows drop the words first, so the buttons keep their room. */
+  :root[data-platform="mac"] .topbar > .pill span { white-space: nowrap; }
+}
+
+@media (min-width: 901px) and (max-width: 1160px) {
+  :root[data-platform="mac"] .topbar > .pill span { display: none; }
+}
+
+/* ----------------------------------------------------------------- panes */
+
+@media (min-width: 901px) {
+  :root[data-platform="mac"] .sidebar {
+    margin: 0;
+    border-radius: 20px;
+    background-color: var(--mac-sidebar-fill);
+    background-image: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    box-shadow:
+      inset 0 0 0 0.5px var(--mac-line),
+      inset 0 1px 0 color-mix(in srgb, #fff 22%, transparent),
+      0 8px 28px rgba(0, 0, 0, 0.1);
+    transition:
+      width 240ms var(--ease-mac),
+      flex-basis 240ms var(--ease-mac),
+      margin 240ms var(--ease-mac),
+      opacity 160ms linear;
+  }
+  /* A hidden pane leaves no extra gap behind. */
+  :root[data-platform="mac"] .sidebar.is-hidden { margin-inline-end: -8px; }
+
+  /* The first row is the traffic lights'; the space switcher sits below it. */
+  :root[data-platform="mac"] .sidebar .pane-head {
+    flex: 0 0 74px;
+    height: 74px;
+    padding: 42px 10px 0;
+    border: 0;
+  }
+  :root[data-platform="mac"] .sidebar .pane-title { display: none; }
+  :root[data-platform="mac"] .sidebar-scroll { padding: 4px 10px 12px; }
+
+  :root[data-platform="mac"] .list,
+  :root[data-platform="mac"] .editor,
+  :root[data-platform="mac"] .info {
+    padding-top: var(--mac-toolbar);
+    border: 0;
+    border-radius: 20px;
+    box-shadow:
+      0 0 0 0.5px var(--mac-line),
+      0 6px 20px rgba(0, 0, 0, 0.08);
+    background-image: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  :root[data-platform="mac"] .list {
+    background: var(--list);
+    overflow: hidden;
+  }
+  :root[data-platform="mac"] .editor { overflow: visible; }
+  :root[data-platform="mac"] .info {
+    margin: 0;
+    background: var(--list);
+  }
+
+  :root[data-platform="mac"] body.focus .editor { max-width: none; margin: 0; }
+  :root[data-platform="mac"] body.focus :is(.title, .body) {
+    padding-inline: max(24px, calc((100% - 760px) / 2));
+  }
+
+  :root[data-platform="mac"] .list-head {
+    flex: 0 0 34px;
+    height: 34px;
+    padding: 0 8px 0 18px;
+    border: 0;
+  }
+}
+
+/* --------------------------------------------------------------- sidebar */
+
+:root[data-platform="mac"] .sidebar .row {
+  min-height: 28px;
+  padding: 4px 8px;
+  gap: 8px;
+  border-radius: 9px;
+  font-size: 13px;
+}
+:root[data-platform="mac"] .sidebar .row:hover { background: var(--mac-hover); }
+:root[data-platform="mac"] .sidebar .row .glyph { color: var(--accent); }
+:root[data-platform="mac"] .sidebar .row .count { color: var(--dim); font-size: 12px; font-variant-numeric: tabular-nums; }
+:root[data-platform="mac"] .sidebar .row.active {
+  background: var(--mac-select);
+  color: var(--text);
+  box-shadow: none;
+  font-weight: 500;
+}
+:root[data-platform="mac"] .sidebar .row .tile { width: 18px; height: 18px; border-radius: 5px; font-size: 10px; }
+:root[data-platform="mac"] .sidebar .links .row { color: var(--text); }
+
+:root[data-platform="mac"] .section-title {
+  margin-top: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--dim);
+}
+:root[data-platform="mac"] .section-title .tiny { color: var(--dim); }
+:root[data-platform="mac"] .space-button { font-size: 13px; color: var(--dim); }
+:root[data-platform="mac"] .space-button:hover { background: var(--mac-hover); color: var(--text); }
+
+/* ------------------------------------------------------------- note list */
+
+:root[data-platform="mac"] .list-head h2 { font-size: 15px; font-weight: 700; }
+:root[data-platform="mac"] .list-head .count { color: var(--dim); }
+:root[data-platform="mac"] .list-head .icon { border-radius: 14px; color: var(--dim); }
+:root[data-platform="mac"] .cards { gap: 0; padding: 4px 10px 12px; }
+
+:root[data-platform="mac"] .card {
+  position: relative;
+  padding: 9px 10px;
+  border-radius: 10px;
+}
+:root[data-platform="mac"] .card:hover { background: transparent; }
+
+/* Native lists have hairlines between rows, broken around the selection. */
+:root[data-platform="mac"] .card:not(.active) + .card:not(.active)::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  inset-inline: 10px;
+  height: 0.5px;
+  background: var(--mac-line);
+}
+
+/* The selection is grey until the list has the keyboard, as in Finder. */
+:root[data-platform="mac"] .card.active { background: var(--mac-hover); box-shadow: none; }
+:root[data-platform="mac"] .list:focus-within .card.active { background: var(--accent); }
+:root[data-platform="mac"] .list:focus-within .card.active :is(.name, .preview, .meta, .badge) { color: #fff; }
+:root[data-platform="mac"] .list:focus-within .card.active .meta { opacity: 0.8; }
+:root[data-platform="mac"] .card:focus-visible { outline: none; }
+
+/* --------------------------------------------------------------- editor */
+
+:root[data-platform="mac"] .title { font-size: 24px; font-weight: 700; padding-top: 6px; }
+
+:root[data-platform="mac"] .editor-dock {
+  left: 14px;
+  right: 14px;
+  bottom: 14px;
+  border-radius: 22px;
+  box-shadow:
+    inset 0 0 0 0.5px var(--mac-line),
+    inset 0 1px 0 color-mix(in srgb, #fff 30%, transparent),
+    0 10px 30px rgba(0, 0, 0, 0.14);
+}
+:root[data-platform="mac"] .editor-dock .format-bar button { border-radius: 9px; }
+:root[data-platform="mac"] .editor-dock .format-bar button:hover { background: var(--mac-hover); }
+
+/* -------------------------------------------------------- sheets, fields */
+
+/* A Mac sheet dims what is behind it and leaves it sharp. */
+:root[data-platform="mac"] .modal:not(#lock-screen) {
+  background: rgba(0, 0, 0, 0.16);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+:root[data-platform="mac"] .modal:not(#lock-screen) .sheet,
+:root[data-platform="mac"] .decision-sheet,
+:root[data-platform="mac"] .formula-sheet {
+  background-color: var(--editor);
+  background-image: none;
+  border: 0;
+  border-radius: 20px;
+  box-shadow:
+    0 0 0 0.5px var(--mac-line),
+    0 24px 70px rgba(0, 0, 0, 0.3);
+}
+
+
+:root[data-platform="mac"] :is(.sheet input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), .dialog-input, .select, .settings-pages select) {
+  min-height: 28px;
+  padding: 4px 9px;
+  border: 0.5px solid var(--mac-line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+  font-size: 13px;
+}
+:root[data-platform="mac"] :is(.sheet input, .dialog-input):focus {
+  border-color: var(--accent);
+  background: var(--editor);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 38%, transparent);
+}
+
+:root[data-platform="mac"] :is(button, .row, .card, .theme-chip):focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  outline-offset: 0;
+}
+
+/* -------------------------------------------- settings, as System Settings */
+
+:root[data-platform="mac"] .settings-tabs {
+  padding: 12px 10px;
+  border: 0;
+  background: color-mix(in srgb, var(--sidebar) 80%, transparent);
+}
+:root[data-platform="mac"] .settings-tabs button {
+  padding: 5px 9px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text);
+}
+:root[data-platform="mac"] .settings-tabs button:hover { background: var(--mac-hover); color: var(--text); }
+:root[data-platform="mac"] .settings-tabs button.active { background: var(--accent); color: #fff; }
+
+:root[data-platform="mac"] .settings-pages h3 { font-size: 15px; font-weight: 700; }
+:root[data-platform="mac"] .settings-pages h4 {
+  margin: 18px 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text);
+}
+:root[data-platform="mac"] .settings-pages label:not(.check) { font-size: 13px; color: var(--text); }
+
+/* Every settings action uses the same control measurement. */
+:root[data-platform="mac"] .settings-pages .segmented {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  margin: 4px 0 14px;
+  background: var(--mac-capsule);
+  border-radius: 16px;
+}
+:root[data-platform="mac"] .settings-pages .segmented button {
+  height: 28px;
+  min-height: 28px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+}
+:root[data-platform="mac"] .settings-pages .segmented button.active {
+  background: var(--editor);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+:root[data-platform="mac"] .settings-pages .modal-row :is(.primary, .ghost) {
+  height: 28px;
+  min-height: 28px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 14px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 26px;
+}
+:root[data-platform="mac"] .settings-pages .modal-row .ghost {
+  background: var(--mac-capsule);
+  color: var(--text);
+}
+:root[data-platform="mac"] .settings-pages .modal-row .ghost.danger { color: var(--danger); }
+
+/* Consecutive options group into one rounded box, with a switch at the end
+   of each row. */
+:root[data-platform="mac"] .settings-pages :is(.check, .option-row) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 38px;
+  margin: 0;
+  padding: 6px 12px;
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+  font-size: 13px;
+  color: var(--text);
+}
+:root[data-platform="mac"] .settings-pages .check { flex-direction: row-reverse; }
+:root[data-platform="mac"] .settings-pages :is(.check, .option-row) + :is(.check, .option-row) {
+  border-top: 0.5px solid var(--mac-line);
+}
+:root[data-platform="mac"] .settings-pages :is(.check, .option-row):not(:is(.check, .option-row) + *) {
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+  margin-top: 10px;
+}
+:root[data-platform="mac"] .settings-pages :is(.check, .option-row):not(:has(+ :is(.check, .option-row))) {
+  border-bottom-left-radius: 10px;
+  border-bottom-right-radius: 10px;
+  margin-bottom: 10px;
+}
+
+:root[data-platform="mac"] .settings-pages .check input[type="checkbox"] {
+  -webkit-appearance: none;
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 30px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  background: var(--mac-press);
+  transition: background-color 160ms linear;
+}
+:root[data-platform="mac"] .settings-pages .check input[type="checkbox"]::before {
+  content: "";
+  position: absolute;
+  top: 1px;
+  inset-inline-start: 1px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  transition: inset-inline-start 160ms var(--ease-mac);
+}
+:root[data-platform="mac"] .settings-pages .check input[type="checkbox"]::after { content: none; }
+:root[data-platform="mac"] .settings-pages .check input[type="checkbox"]:checked { background: var(--accent); }
+:root[data-platform="mac"] .settings-pages .check input[type="checkbox"]:checked::before { inset-inline-start: 13px; }
+
+/* Action rows wrap whole buttons, rather than wrapping the words inside them. */
+:root[data-platform="mac"] .settings-pages .modal-row { flex-wrap: wrap; }
+:root[data-platform="mac"] .settings-pages .modal-row + h4 { margin-top: 22px; }
+
+/* ----------------------------------------------------------------- menus */
+
+:root[data-platform="mac"] :is(.context-menu, .slash-menu, .text-style-pop, .table-tools, .palette, .find-bar) {
+  border: 0;
+  border-radius: 13px;
+  background-image: none;
+  background-color: color-mix(in srgb, var(--editor) 72%, transparent);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  backdrop-filter: blur(30px) saturate(180%);
+  box-shadow:
+    0 0 0 0.5px var(--mac-line),
+    0 12px 36px rgba(0, 0, 0, 0.24);
+}
+:root[data-platform="mac"] .context-menu { padding: 5px; min-width: 220px; }
+:root[data-platform="mac"] .context-menu button {
+  min-height: 24px;
+  padding: 2px 9px;
+  border-radius: 7px;
+  font-size: 13px;
+}
+/* The highlighted item is the accent itself, with everything in it white. */
+:root[data-platform="mac"] .context-menu button:hover { background: var(--accent); color: #fff; }
+:root[data-platform="mac"] .context-menu button:hover :is(.menu-label, .menu-icon, .menu-hint, .menu-check) { color: #fff; }
+:root[data-platform="mac"] .context-menu .menu-sep { height: 0.5px; background: var(--mac-line); margin: 4px 9px; }
+
+:root[data-platform="mac"] .toast { border-radius: 18px; }
+
+/* --------------------------------------------------------------- buttons */
+
+/* Every text button on the Mac is the same 28px capsule.
+   The two ids get their own selector because the shared rules style them by
+   id; in one list, that id weight would beat the danger and link colours. */
+:root[data-platform="mac"] button:is(.primary, .ghost, .export-go),
+:root[data-platform="mac"] .sync-actions button:is(#s-connect, #s-save),
+:root[data-platform="mac"] .theme-chip,
+:root[data-platform="mac"] .segmented button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  min-height: 28px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--mac-capsule);
+  background-image: none;
+  box-shadow: none;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  text-decoration: none;
+}
+:root[data-platform="mac"] button:is(.primary, .ghost, .export-go):hover,
+:root[data-platform="mac"] .sync-actions button:is(#s-connect, #s-save):hover,
+:root[data-platform="mac"] .theme-chip:hover,
+:root[data-platform="mac"] .segmented button:not(.active):hover {
+  background: var(--mac-hover);
+  border-color: transparent;
+  color: var(--text);
+  filter: none;
+  text-decoration: none;
+}
+:root[data-platform="mac"] button:is(.primary, .ghost, .export-go):active,
+:root[data-platform="mac"] .theme-chip:active { background: var(--mac-press); transform: none; }
+
+/* One filled action per place: the accent, otherwise the same button. */
+:root[data-platform="mac"] button.primary,
+:root[data-platform="mac"] .sync-actions button#s-connect,
+:root[data-platform="mac"] .theme-chip.on {
+  border-color: transparent;
+  background: var(--accent);
+  color: #fff;
+}
+:root[data-platform="mac"] button.primary:hover,
+:root[data-platform="mac"] .sync-actions button#s-connect:hover,
+:root[data-platform="mac"] .theme-chip.on:hover {
+  border-color: transparent;
+  background: var(--accent);
+  color: #fff;
+  filter: brightness(1.08);
+}
+
+:root[data-platform="mac"] button.ghost.danger { color: var(--danger); }
+:root[data-platform="mac"] button.ghost.danger:hover { color: var(--danger); }
+/* The sheet keeps one size, so moving between pages doesn't make it jump. */
+@media (min-width: 901px) {
+  :root[data-platform="mac"] #settings-modal .sheet.wide { height: min(620px, 86vh); }
+  :root[data-platform="mac"] #settings-modal .settings-body { flex: 1; min-height: 0; }
+}
+
+/* A row's own Delete stays quiet: it is a link beside a field, not an action. */
+:root[data-platform="mac"] .nb-row button.ghost,
+:root[data-platform="mac"] .nb-row button.ghost:hover {
+  height: auto;
+  min-height: 0;
+  padding: 4px 8px;
+  border: 0;
+  background: transparent;
+  color: var(--danger);
+}
+
+/* The modes are one control made of those same buttons. */
+:root[data-platform="mac"] .segmented {
+  display: inline-flex;
+  gap: 0;
+  padding: 2px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--mac-capsule);
+}
+:root[data-platform="mac"] .segmented button {
+  height: 24px;
+  min-height: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+}
+
+:root[data-platform="mac"] .theme-row { gap: 6px; }
+:root[data-platform="mac"] .settings-pages .modal-row { flex-wrap: wrap; gap: 8px; }
+:root[data-platform="mac"] .topbar > #new-note { flex: none; }
+
+/* -------------------------------------------------------- inactive window */
+
+:root[data-platform="mac"].window-inactive :is(.topbar .icon, .editor-tools .icon, .topbar .search-box) { opacity: 0.55; }
+:root[data-platform="mac"].window-inactive .sidebar .row.active { background: var(--mac-hover); }
+:root[data-platform="mac"].window-inactive .sidebar .row .glyph { color: var(--dim); }
+:root[data-platform="mac"].window-inactive .list:focus-within .card.active { background: var(--mac-hover); }
+:root[data-platform="mac"].window-inactive .list:focus-within .card.active :is(.name) { color: var(--text); }
+:root[data-platform="mac"].window-inactive .list:focus-within .card.active :is(.preview, .meta) { color: var(--dim); }
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-platform="mac"] :is(.sidebar, .topbar, .topbar > #toggle-sidebar) { transition: none; }
+}
