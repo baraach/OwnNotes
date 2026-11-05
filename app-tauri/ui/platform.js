@@ -9,6 +9,14 @@
   const mac = !ios && !android && !win && !linux && (/Macintosh|Mac OS X/i.test(ua) || /Mac/i.test(p));
   document.documentElement.dataset.platform = ios ? "ios" : android ? "android" : mac ? "mac" : win ? "windows" : "linux";
   document.documentElement.dataset.mobile = ios || android ? "true" : "false";
+
+  // No page zoom on the phone: a double tap or pinch must not magnify the
+  // interface like a photo. Panning and scrolling are unaffected.
+  if (ios || android) {
+    for (const gesture of ["gesturestart", "gesturechange"]) {
+      document.addEventListener(gesture, (event) => event.preventDefault(), { passive: false });
+    }
+  }
   // Linux always uses solid surfaces; the glass treatment is an Apple look.
   document.documentElement.dataset.glass =
     document.documentElement.dataset.platform === "linux" ? "off" : "on";

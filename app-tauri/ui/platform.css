@@ -1,6 +1,13 @@
 /* Engine fallbacks shared by every platform. Platform chrome lives in
    ui/platform/<platform>.css. */
 
+/* The app is a fixed interface, not a document. Touch screens may pan and
+   scroll, but never zoom: this removes double-tap and pinch zoom. */
+html[data-mobile="true"],
+html[data-mobile="true"] body {
+  touch-action: pan-x pan-y;
+}
+
 /* The accent table only holds light tints, and the app sets them inline, so a
    dark theme has to insist or a selected control turns into a pale block. */
 :root:is([data-theme="dark"], [data-theme="nord"], [data-theme="graphite"], [data-theme="forest"]) {
