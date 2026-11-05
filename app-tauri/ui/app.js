@@ -2395,7 +2395,9 @@ function trackIosKeyboard() {
   if (PLATFORM !== "ios" || !viewport) return;
   const root = document.documentElement;
   const update = () => {
-    const keyboard = Math.max(0, Math.round(window.innerHeight - viewport.height));
+    // offsetTop is the part of the layout viewport WebKit panned away while
+    // focusing the editor; without it the app shrinks by that much too.
+    const keyboard = Math.max(0, Math.round(window.innerHeight - viewport.height - viewport.offsetTop));
     root.style.setProperty("--keyboard-inset", keyboard + "px");
     root.classList.toggle("keyboard-open", keyboard > 80);
     // WebKit scrolls the whole page to reveal a field; the panes scroll instead.
