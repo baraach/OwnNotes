@@ -2404,9 +2404,9 @@ pub fn run() {
 
             let dir = platform::data_dir(app);
             let _ = std::fs::create_dir_all(&dir);
-            // The core is platform-agnostic; this is how it learns the
-            // sandboxed location without depending on Tauri itself.
-            std::env::set_var("OWNNOTES_DATA_DIR", &dir);
+            // The store is opened with an explicit sandbox path below.
+            // Do not set OWNNOTES_DATA_DIR: the core treats that variable as
+            // test mode and disables the system keychain for WebDAV.
 
             let (store, doc, saved, mut problems) = Store::open_at(dir);
             if let Some(problem) = problems.pop() {
