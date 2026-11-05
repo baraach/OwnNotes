@@ -100,6 +100,49 @@ function applyMobileMode() {
   syncMobileBack();
 }
 
+/** The topmost transient layer on a phone, if any. */
+function topMobileModal() {
+  const modals = [...document.querySelectorAll(".modal:not([hidden])")].filter(
+    (modal) => modal.id !== "lock-screen" && getComputedStyle(modal).display !== "none"
+  );
+  return modals.length ? modals[modals.length - 1] : null;
+}
+
+function topMobilePopover() {
+  return [...document.querySelectorAll(".context-menu, .palette, .text-style-pop, .slash-menu, .table-tools")]
+    .find((element) => !element.hidden && getComputedStyle(element).display !== "none") || null;
+}
+
+function closeTopMobileLayer() {
+  const popover = topMobilePopover();
+  if (popover) {
+    popover.remove();
+    return true;
+  }
+  const modal = topMobileModal();
+  if (modal) {
+    if (modal.id === "settings-modal") $("s-close")?.click();
+    else if (modal.id === "tour") $("tour-later")?.click();
+    else if (modal.id === "export-modal") $("export-close")?.click();
+    else if (modal.id === "history-modal") $("h-close")?.click();
+    else {
+      const close = modal.querySelector(".dialog-cancel, .formula-cancel");
+      if (close) close.click();
+      else modal.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    }
+    return true;
+  }
+  if (document.body.classList.contains("mobile-nav")) {
+    closeMobileNav();
+    return true;
+  }
+  if (document.body.classList.contains("mobile-editor")) {
+    closeMobileEditor();
+    return true;
+  }
+  return false;
+}
+
 /** Android's back gesture closes the editor or drawer before leaving the app. */
 async function syncMobileBack() {
   if (PLATFORM !== "android" || !isMobile()) {
@@ -110,7 +153,11 @@ async function syncMobileBack() {
     }
     return;
   }
-  const needed = document.body.classList.contains("mobile-editor") || document.body.classList.contains("mobile-nav");
+  const needed =
+    document.body.classList.contains("mobile-editor") ||
+    document.body.classList.contains("mobile-nav") ||
+    !!topMobileModal() ||
+    !!topMobilePopover();
   if (!needed) {
     if (mobileBackUnlisten) {
       const off = mobileBackUnlisten;
@@ -125,20 +172,30 @@ async function syncMobileBack() {
   mobileBackBusy = true;
   try {
     mobileBackUnlisten = await app.onBackButtonPress(() => {
-      if (document.body.classList.contains("mobile-nav")) closeMobileNav();
-      else if (document.body.classList.contains("mobile-editor")) closeMobileEditor();
+      closeTopMobileLayer();
+      syncMobileBack();
     });
   } catch {
     mobileBackUnlisten = null;
   } finally {
     mobileBackBusy = false;
   }
-  if (!document.body.classList.contains("mobile-editor") && !document.body.classList.contains("mobile-nav") && mobileBackUnlisten) {
+  if (!document.body.classList.contains("mobile-editor") && !document.body.classList.contains("mobile-nav") && !topMobileModal() && !topMobilePopover() && mobileBackUnlisten) {
     const off = mobileBackUnlisten;
     mobileBackUnlisten = null;
     try { off(); } catch {}
   }
 }
+
+const mobileBackObserver = new MutationObserver(() => {
+  if (PLATFORM === "android") syncMobileBack();
+});
+mobileBackObserver.observe(document.body, {
+  subtree: true,
+  childList: true,
+  attributes: true,
+  attributeFilter: ["hidden"],
+});
 mobileQuery.addEventListener("change", applyMobileMode);
 
 /** "⌘⇧F" → "Ctrl+Shift+F" on the platforms that use Ctrl. */
@@ -1290,7 +1347,9 @@ function renderCards() {
           },
         },
       ];
-      Dialog.menu(event.clientX, event.clientY, items);
+      const mobileHidden = ["Open in new window", "Export…"];
+      const shown = isMobile() ? items.filter((item) => !mobileHidden.includes(item.label)) : items;
+      Dialog.menu(event.clientX, event.clientY, shown);
     });
     box.appendChild(card);
   }
@@ -1516,7 +1575,7 @@ $("editor-menu").addEventListener("click", (event) => {
   if (!note) return;
   const rect = event.currentTarget.getBoundingClientRect();
   const icon = (path) => `<svg viewBox="0 0 24 24">${path}</svg>`;
-  Dialog.menu(rect.right - 240, rect.bottom + 6, [
+  const items = [
     { label: "Export…", icon: icon('<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 21h16"/>'), hint: "⌘E", run: () => openExport() },
     { label: "Search this note", icon: icon('<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/>'), hint: "⌘F", run: () => openFind() },
     { label: "Copy link to note", icon: icon('<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/>'), run: () => copyText(`ownnotes://note/${note.id}`) },
@@ -1554,7 +1613,9 @@ $("editor-menu").addEventListener("click", (event) => {
     { label: "Text direction: follow the text", icon: icon('<path d="M4 6h16"/><path d="M7 12h10"/><path d="M4 18h16"/>'), run: () => applyDirection("auto") },
     { separator: true },
     { label: note.trashed ? "Restore from Trash" : "Move to trash", icon: icon('<path d="M4 7h16"/><path d="M9 7V4.5h6V7"/><path d="M6 7l1 13h10l1-13"/>'), hint: "⌘⌫", danger: !note.trashed, run: () => invoke("set_flags", { id: note.id, pinned: null, starred: null, trashed: !note.trashed }).then(refresh) },
-  ], { anchor: rect, align: "end" });
+  ];
+  const shown = isMobile() ? items.filter((item) => !["Export…", "Print…"].includes(item.label)) : items;
+  Dialog.menu(rect.right - 240, rect.bottom + 6, shown, { anchor: rect, align: "end" });
 });
 
 $("pin").addEventListener("click", () => toggleFlag("pinned"));

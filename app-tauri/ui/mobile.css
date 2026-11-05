@@ -222,3 +222,6 @@ html[data-mobile="true"] #s-connected {
 html[data-mobile="true"] .modal .sheet:not(.wide) {
   margin-top: calc(12px + env(safe-area-inset-top));
 }
+
+/* Features that need a desktop file picker or window. */
+html[data-mobile="true"] .desktop-only { display: none !important; }

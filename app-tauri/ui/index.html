@@ -7,7 +7,7 @@
     <script src="platform.js?v=1"></script>
     <link rel="stylesheet" href="app.css?v=20" />
     <link rel="stylesheet" href="platform.css?v=2" />
-    <link rel="stylesheet" href="mobile.css?v=2" />
+    <link rel="stylesheet" href="mobile.css?v=3" />
     <link rel="stylesheet" href="platform/macos.css?v=1" />
     <link rel="stylesheet" href="platform/windows.css?v=1" />
     <link rel="stylesheet" href="platform/linux.css?v=1" />
@@ -261,17 +261,17 @@
 
               <h4>Notebooks</h4>
               <div id="g-notebooks"></div>
-              <h4>Export</h4>
-              <p class="hint">Everything, in one go. Markdown is a single file; HTML is a folder with one file per note.</p>
-              <div class="modal-row">
+              <h4 class="desktop-only">Export</h4>
+              <p class="hint desktop-only">Everything, in one go. Markdown is a single file; HTML is a folder with one file per note.</p>
+              <div class="modal-row desktop-only">
                 <button class="ghost" id="export-md">Export all as Markdown…</button>
                 <button class="ghost" id="export-html">Export all as HTML…</button>
               </div>
-              <p class="hint" id="export-path"></p>
+              <p class="hint desktop-only" id="export-path"></p>
 
-              <h4>Import</h4>
-              <p class="hint">Bring notes in from another app. They land in the notebook you have selected, or the first one.</p>
-              <div class="modal-row">
+              <h4 class="desktop-only">Import</h4>
+              <p class="hint desktop-only">Bring notes in from another app. They land in the notebook you have selected, or the first one.</p>
+              <div class="modal-row desktop-only">
                 <button class="ghost" id="import-enex">Evernote export (.enex)…</button>
                 <button class="ghost" id="import-md">Markdown files…</button>
                 <button class="ghost" id="import-simplenote">Simplenote backup…</button>
@@ -298,7 +298,7 @@
               </label>
               <div class="modal-row">
                 <button class="ghost" id="g-backup">Back up now</button>
-                <button class="ghost" id="g-backup-open">Show the backup folder</button>
+                <button class="ghost desktop-only" id="g-backup-open">Show the backup folder</button>
               </div>
               <p class="hint" id="g-backup-path">A copy of your notes, kept on this computer.</p>
               <h4>Version history</h4>
@@ -534,7 +534,7 @@
     <script src="i18n.fr.js?v=14"></script>
     <script src="i18n.es.js?v=14"></script>
     <script src="dialogs.js?v=16"></script>
-    <script src="app.js?v=22"></script>
+    <script src="app.js?v=24"></script>
     <script src="editor.js?v=11"></script>
   </body>
 </html>
