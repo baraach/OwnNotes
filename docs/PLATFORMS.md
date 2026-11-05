@@ -94,6 +94,25 @@ cargo tauri android init --ci      # once
 cargo tauri android build --debug --target aarch64 --apk
 ```
 
+Android release signing is optional. Create `gen/android/keystore.properties`
+(ignored by git) with:
+
+```properties
+storeFile=/absolute/path/to/release.jks
+storePassword=...
+keyAlias=...
+keyPassword=...
+```
+
+Then `cargo tauri android build --target aarch64 --apk` produces a signed
+release APK under `gen/android/app/build/outputs/apk/universal/release/`.
+Without that file the release build stays unsigned. Never commit the
+keystore or its passwords.
+
+iOS builds need a development team and signing identity before the
+keychain entitlement can take effect; the simulator build is ad-hoc and
+cannot store WebDAV credentials.
+
 A shared UI smoke flow for both mobile targets lives in
 `mobile-tests/smoke.yaml`:
 
