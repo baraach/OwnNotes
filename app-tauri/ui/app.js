@@ -2259,6 +2259,12 @@ $("search").addEventListener("focus", () => {
   // Results appear in the note list, which Browse covers.
   closeMobileNav();
   document.body.classList.add("mobile-search");
+  // Android can drop the IME request made while the search chrome is changing.
+  if (PLATFORM === "android") {
+    setTimeout(() => {
+      try { window.OwnNotesAndroid?.showKeyboard?.(); } catch {}
+    }, 80);
+  }
   syncMobileTabs();
   syncMobileBack();
 });

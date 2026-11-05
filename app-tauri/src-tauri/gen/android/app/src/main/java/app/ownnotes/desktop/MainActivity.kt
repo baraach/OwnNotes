@@ -1,6 +1,8 @@
 package app.ownnotes.desktop
 
+import android.content.Context
 import android.os.Bundle
+import android.view.inputmethod.InputMethodManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import androidx.activity.enableEdgeToEdge
@@ -11,6 +13,7 @@ import androidx.core.view.WindowInsetsCompat
 class MainActivity : TauriActivity() {
   // Read by the page at startup, because the first insets can arrive before it loads.
   @Volatile private var insets = ""
+  private var webView: WebView? = null
 
   override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge()
@@ -18,6 +21,7 @@ class MainActivity : TauriActivity() {
   }
 
   override fun onWebViewCreate(webView: WebView) {
+    this.webView = webView
     webView.addJavascriptInterface(Bridge(), "OwnNotesAndroid")
     ViewCompat.setOnApplyWindowInsetsListener(webView) { view, windowInsets ->
       val density = resources.displayMetrics.density
@@ -40,6 +44,17 @@ class MainActivity : TauriActivity() {
   private inner class Bridge {
     @JavascriptInterface
     fun insets(): String = this@MainActivity.insets
+
+    /** A label-focused search field does not always open the IME on its own. */
+    @JavascriptInterface
+    fun showKeyboard() {
+      runOnUiThread {
+        val view = webView ?: return@runOnUiThread
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        view.requestFocus()
+        imm.showSoftInput(view, InputMethodManager.SHOW_IMPLICIT)
+      }
+    }
 
     /** Dark status-bar icons for a light app theme, and the other way round. */
     @JavascriptInterface
