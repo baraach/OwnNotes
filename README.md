@@ -6,11 +6,16 @@
 
 <p align="center">
   <b>Notes that are files you own.</b><br/>
-  Rich text, right-to-left done properly, and sync through your own WebDAV folder — no account, no vendor, no lock-in.
+  Rich text, right-to-left support, and sync through your own WebDAV folder —
+  on macOS, Windows, Linux, iOS and Android. No account, no vendor, no lock-in.
 </p>
 
 <p align="center">
   <img alt="macOS" src="https://img.shields.io/badge/macOS-11%2B-black?logo=apple&logoColor=white" />
+  <img alt="Windows" src="https://img.shields.io/badge/Windows-10%2B-0078D4?logo=windows&logoColor=white" />
+  <img alt="Linux" src="https://img.shields.io/badge/Linux-FCC624?logo=linux&logoColor=black" />
+  <img alt="iOS" src="https://img.shields.io/badge/iOS-15%2B-000000?logo=apple&logoColor=white" />
+  <img alt="Android" src="https://img.shields.io/badge/Android-7%2B-3DDC84?logo=android&logoColor=white" />
   <img alt="Rust" src="https://img.shields.io/badge/Rust-2021-orange?logo=rust&logoColor=white" />
   <img alt="Tauri" src="https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white" />
   <img alt="Languages" src="https://img.shields.io/badge/languages-6-4c8bf5" />
@@ -30,24 +35,31 @@ Koofr, a NAS, anything.
 notes/Work/note-4183.html      ← readable, syncable, yours
 ```
 
+The same Rust core and file format runs in the desktop app and in the iOS and
+Android apps. The desktop keeps its three-pane window; phones get a touch-first,
+one-pane layout with platform-specific navigation and chrome.
+
 ## 📸 Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/app.png" width="900" alt="OwnNotes with a note open: sidebar, note list and rich text editor" />
+  <img src="docs/screenshots/app.png" width="900" alt="OwnNotes desktop with a note open: sidebar, note list and rich text editor" />
 </p>
 
 <p align="center">
-  <sub>Notes, notebooks, spaces and tags on the left; a note with checklists, colours,
-  quotes and the format bar on the right.</sub>
+  <sub>Desktop: the same sample notes as the phone screenshots, with the
+  notebook tree on the left and a rich note and the format bar on the right.</sub>
 </p>
-
-<!-- More screenshots welcome: drop the files in docs/screenshots and uncomment.
 
 <p align="center">
-  <img src="docs/screenshots/arabic.png" width="440" alt="Arabic interface, right to left" />
-  <img src="docs/screenshots/settings.png" width="440" alt="Sync settings" />
+  <img src="docs/screenshots/ios.png" width="300" alt="OwnNotes on iPhone with the iOS list, floating navigation and compose action" />
+  <img src="docs/screenshots/android.png" width="300" alt="OwnNotes on Android with the Material search bar, note list and bottom navigation" />
 </p>
--->
+
+<p align="center">
+  <sub>iPhone: native large titles, inset grouped lists, floating navigation and
+  a dedicated Search action. Android: Material 3 search, grouped notes,
+  floating navigation and compose button.</sub>
+</p>
 
 ## 🌟 Features
 
@@ -57,6 +69,23 @@ notes/Work/note-4183.html      ← readable, syncable, yours
 - **Collapsible sections**, **LaTeX** formulas rendered as MathML, **embedded videos**
 - **Images and files** — attachments stored beside the note and synced with it
 - **Markdown as you type** — `#`, `-`, `1.`, `>`, `- [ ]` convert on space
+- **One writing surface everywhere** — the same note editor, format bar and
+  autosave on desktop and phones
+
+### 📱 iPhone and Android
+- **Platform-specific layouts** — iOS large titles, inset grouped lists, a
+  floating glass navigation bar, a separate Search action and edge-swipe back;
+  Android follows Material 3 with a search bar, grouped notes, floating
+  navigation, compose action and tonal colours
+- **Touch-first structure** — Notes, Browse and Settings are bottom
+  destinations; iOS puts Search beside the bar, Android keeps the search field
+  above the list, and Browse stays navigable instead of covering the bar
+- **Keyboard-aware editor** — the format toolbar sits above the keyboard using
+  iOS's visual viewport and Android's IME/system-bar insets
+- **Safe areas and motion** — notches, home indicators, Android gesture bars,
+  reduced-motion support and platform-native sheets
+- **The same data and sync** — notebooks, tags, favourites, locks and WebDAV
+  sync carry over from the desktop app
 
 ### 🗂 Organising
 - 🗄 **Spaces** — separate universes of notes
@@ -78,23 +107,27 @@ notes/Work/note-4183.html      ← readable, syncable, yours
 - 🤝 First-sync decision: **merge**, **keep this computer**, or **keep the server**
 - 🕓 **Version history** with restore, **scheduled backups**, conflict copies
 - ⏱ Automatic sync on change and on an interval, plus a manual button and status
+- 📱 The same sync runs on desktop, iOS and Android; saved credentials use the
+  platform keychain/keystore
 
 ### 🌍 Languages
-| | |
-|---|---|
-| English | left to right |
-| **العربية** | **right to left — the whole interface mirrors** |
-| Türkçe · Deutsch · Polski · Français · Español | left to right |
+- English
+- **العربية** — the whole interface mirrors for right-to-left
+- Türkçe · Deutsch · Polski · Français · Español
 
 Note text follows its own language per paragraph, so one note can hold Arabic
-and English and each flows the right way.
+and English and each flows correctly.
 
 ### 📥 Import · 📤 Export
+On the desktop app:
 - **Import** from Evernote (`.enex`), Markdown, Simplenote (`.json`), Bear
   (`.bear` archives) and Apple Notes
 - **Export** to Markdown, HTML, Text, PNG (single or bulk), PDF, or print
 
-## ⌨️ Shortcuts
+File import and export, print and backup tools are desktop-only for now; the
+phone apps focus on writing, organising and sync.
+
+## ⌨️ Desktop shortcuts
 
 | | | | |
 |---|---|---|---|
@@ -102,25 +135,30 @@ and English and each flows the right way.
 | `⌘F` find in note | `⇧⌘F` focus mode | `⌘E` export | `⌘P` print / PDF |
 | `⌥⌘P` save as picture | `⇧⌘P` pin | `⇧⌘S` Quick Access | `⌘⌫` trash or restore |
 
+On Windows and Linux, use `Ctrl` instead of `⌘`.
+
 ## 🚀 Build
 
 Requires Rust and the [Tauri prerequisites](https://tauri.app/start/prerequisites/).
+Desktop builds are available for macOS, Windows and Linux. iOS needs Xcode;
+Android needs a JDK, the Android SDK and an NDK. The exact toolchains, data
+locations and generated project layout are in [docs/PLATFORMS.md](docs/PLATFORMS.md).
 
 ```bash
 git clone https://github.com/baraach/OwnNotes.git
 cd OwnNotes
-cargo run -p ownnotes-tauri           # development build
+cargo run -p ownnotes-tauri           # desktop development build
 ```
 
-A distributable app:
+A distributable desktop app:
 
 ```bash
 cargo install tauri-cli --version '^2'
 cd app-tauri/src-tauri && cargo tauri build
-# → target/release/bundle/macos/OwnNotes.app and OwnNotes_1.0.0_*.dmg
+# → target/release/bundle/<platform>/...
 ```
 
-Mobile builds use the same shared Rust core and interface:
+Phone builds use the same interface and core:
 
 ```bash
 cd app-tauri/src-tauri
@@ -128,8 +166,8 @@ cargo tauri ios build --debug --target aarch64-sim --no-sign
 cargo tauri android build --debug --target aarch64 --apk
 ```
 
-The iOS and Android toolchains, sandbox data locations and per-platform
-file layout are described in [docs/PLATFORMS.md](docs/PLATFORMS.md).
+These are simulator/emulator builds. Device, TestFlight and store builds need
+your own signing identity; see [docs/PLATFORMS.md](docs/PLATFORMS.md).
 
 ## 🧪 Tests
 
@@ -137,8 +175,15 @@ file layout are described in [docs/PLATFORMS.md](docs/PLATFORMS.md).
 cargo test --workspace
 ```
 
-Forty tests across the core, plus integration tests that start a real WebDAV
+57 tests across the core, plus integration tests that start a real WebDAV
 server to exercise attachment sync, and tests for every importer.
+
+The mobile UI shell has a [Maestro smoke flow](mobile-tests/smoke.yaml) used on
+the iOS simulator:
+
+```bash
+maestro test --device <simulator-udid> mobile-tests/smoke.yaml
+```
 
 ## 🗂 Project layout
 
@@ -148,13 +193,16 @@ app-tauri/src-tauri/          shared Tauri entry, state and commands
 app-tauri/src-tauri/src/platform/
                               macOS, Windows, Linux, iOS, Android layers
 app-tauri/ui/                 shared interface (no build step)
-app-tauri/ui/platform/        per-platform CSS corrections
+app-tauri/ui/platform/        desktop corrections and complete phone designs
 app-tauri/src-tauri/gen/apple/    Xcode project (iOS)
 app-tauri/src-tauri/gen/android/  Gradle project (Android)
+mobile-tests/                 mobile UI smoke flow
 ```
 
-See [docs/PLATFORMS.md](docs/PLATFORMS.md) for what belongs where and how to
-build each target.
+The iOS and Android layouts deliberately do not share a mobile stylesheet, so
+one platform's design cannot restyle the other. See
+[docs/PLATFORMS.md](docs/PLATFORMS.md) for what belongs where and how to build
+each target.
 
 ## 🧭 How a note is stored
 

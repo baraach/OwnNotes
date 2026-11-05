@@ -1,12 +1,17 @@
 # Screenshots
 
-`app.png` — the one used in the main README.
-
-More are welcome. Capture with **⇧⌘4** then **Space**, click the OwnNotes window,
-and save here with these names, then uncomment the block in the main README:
-
-| File | What to capture |
+| File | What it shows |
 |---|---|
-| `arabic.png` | the window with العربية chosen in Settings → General |
-| `settings.png` | Settings → Sync & Storage, with a server filled in |
-| `pinned.png` | Quick Access open with a pinned note |
+| `app.png` | Desktop: the three-pane window with the same sample notes as the phones |
+| `ios.png` | iPhone: large-title list, floating navigation and Search action |
+| `android.png` | Android: Material 3 search bar, note list and bottom navigation |
+
+The three files above are the ones used in the main README.
+
+## Capturing
+
+- Desktop: capture the OwnNotes window and save it as `app.png`.
+- iOS simulator: `xcrun simctl io booted screenshot docs/screenshots/ios.png`
+- Android emulator: `adb exec-out screencap -p > docs/screenshots/android.png`
+
+Keep the note list at the top and avoid test notes when refreshing these images.
