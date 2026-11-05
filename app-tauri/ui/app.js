@@ -28,6 +28,8 @@ function modKey(event) {
 }
 
 const mobileQuery = window.matchMedia("(max-width: 900px)");
+let mobileBackUnlisten = null;
+let mobileBackBusy = false;
 
 /** Phones and tablets get one pane at a time; the desktop window doesn't. */
 function isMobile() {
@@ -36,6 +38,7 @@ function isMobile() {
 
 function closeMobileEditor() {
   if (isMobile()) document.body.classList.remove("mobile-editor");
+  syncMobileBack();
 }
 
 /** Show the note list again after the editor, without losing the selection. */
@@ -43,6 +46,7 @@ function openMobileEditor() {
   if (!isMobile()) return;
   closeMobileNav();
   document.body.classList.add("mobile-editor");
+  syncMobileBack();
 }
 
 function closeMobileNav() {
@@ -55,6 +59,7 @@ function closeMobileNav() {
     sidebar.setAttribute("inert", "");
     sidebar.setAttribute("aria-hidden", "true");
   }
+  syncMobileBack();
 }
 
 function toggleMobileNav() {
@@ -72,6 +77,7 @@ function toggleMobileNav() {
     sidebar.removeAttribute("inert");
     sidebar.setAttribute("aria-hidden", "false");
   }
+  syncMobileBack();
 }
 
 function applyMobileMode() {
@@ -80,6 +86,7 @@ function applyMobileMode() {
   if (mobile) {
     closeMobileEditor();
     closeMobileNav();
+    syncMobileBack();
     return;
   }
   document.body.classList.remove("mobile-editor", "mobile-nav");
@@ -89,6 +96,47 @@ function applyMobileMode() {
   if (sidebar) {
     sidebar.removeAttribute("inert");
     sidebar.setAttribute("aria-hidden", "false");
+  }
+  syncMobileBack();
+}
+
+/** Android's back gesture closes the editor or drawer before leaving the app. */
+async function syncMobileBack() {
+  if (PLATFORM !== "android" || !isMobile()) {
+    if (mobileBackUnlisten) {
+      const off = mobileBackUnlisten;
+      mobileBackUnlisten = null;
+      try { off(); } catch {}
+    }
+    return;
+  }
+  const needed = document.body.classList.contains("mobile-editor") || document.body.classList.contains("mobile-nav");
+  if (!needed) {
+    if (mobileBackUnlisten) {
+      const off = mobileBackUnlisten;
+      mobileBackUnlisten = null;
+      try { off(); } catch {}
+    }
+    return;
+  }
+  if (mobileBackUnlisten || mobileBackBusy) return;
+  const app = window.__TAURI__?.app;
+  if (!app?.onBackButtonPress) return;
+  mobileBackBusy = true;
+  try {
+    mobileBackUnlisten = await app.onBackButtonPress(() => {
+      if (document.body.classList.contains("mobile-nav")) closeMobileNav();
+      else if (document.body.classList.contains("mobile-editor")) closeMobileEditor();
+    });
+  } catch {
+    mobileBackUnlisten = null;
+  } finally {
+    mobileBackBusy = false;
+  }
+  if (!document.body.classList.contains("mobile-editor") && !document.body.classList.contains("mobile-nav") && mobileBackUnlisten) {
+    const off = mobileBackUnlisten;
+    mobileBackUnlisten = null;
+    try { off(); } catch {}
   }
 }
 mobileQuery.addEventListener("change", applyMobileMode);
@@ -3733,9 +3781,13 @@ function openExport() {
   translateDom($("export-modal"));
 }
 
-$("tour-later").addEventListener("click", () => ($("tour").hidden = true));
+$("tour-later").addEventListener("click", () => {
+  $("tour").hidden = true;
+  setUiPref("onboarded", true);
+});
 $("tour-sync").addEventListener("click", () => {
   $("tour").hidden = true;
+  setUiPref("onboarded", true);
   activeTab = "sync";
   openSettings();
 });
@@ -4057,8 +4109,8 @@ async function boot() {
   // loaded, rendered or synced before that.
   // First launch: ask about sync before anything else.
   const [, , connected] = await rawInvoke("sync_status");
-  // A connected server means no sheet, ever again.
-  showWelcome = !connected;
+  // Onboarding is a first-launch event, even for people who never connect.
+  showWelcome = !connected && !pref("onboarded", false);
 
   const hasLock = await invoke("lock_state");
   if (hasLock) {
