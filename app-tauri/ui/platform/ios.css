@@ -497,6 +497,9 @@ html[data-platform="ios"][data-mobile="true"].keyboard-open .mobile-tabs { displ
 /* ----------------------------------------------------------------- editor */
 
 html[data-platform="ios"][data-mobile="true"] .editor { display: none; flex-direction: column; background: var(--ios-page); }
+/* The back swipe is handled in JavaScript, so WebKit must not consume a
+   horizontal drag as a pan. Vertical scrolling still works. */
+html[data-platform="ios"][data-mobile="true"] .editor { touch-action: pan-y; }
 html[data-platform="ios"][data-mobile="true"] body.mobile-editor .editor { display: flex; animation: ios-push 340ms cubic-bezier(0.2, 0.85, 0.25, 1); }
 /* During the back swipe the list is already waiting underneath. */
 html[data-platform="ios"][data-mobile="true"] body.mobile-swiping .list { display: flex; }
