@@ -94,6 +94,13 @@ cargo tauri android init --ci      # once
 cargo tauri android build --debug --target aarch64 --apk
 ```
 
+A shared UI smoke flow for both mobile targets lives in
+`mobile-tests/smoke.yaml`:
+
+```bash
+maestro test --device <simulator-udid> mobile-tests/smoke.yaml
+```
+
 On this machine the SDK is installed at
 `/opt/homebrew/share/android-commandlinetools` and the NDK at
 `.../ndk/27.0.12077973`.

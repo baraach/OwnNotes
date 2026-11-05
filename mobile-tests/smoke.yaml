@@ -1,0 +1,28 @@
+appId: app.ownnotes.desktop
+---
+# Shared smoke test for the iOS and Android builds. It uses only UI that
+# exists on both: the one-time welcome sheet, the note list, the editor and
+# the mobile back button. Run with:
+#   maestro test --device <udid> mobile-tests/smoke.yaml
+- launchApp
+- waitForAnimationToEnd
+- tapOn:
+    text: "Later"
+    optional: true
+- tapOn:
+    text: "Back to notes"
+    optional: true
+- assertVisible: "All Notes"
+- tapOn:
+    text: ".*Welcome to OwnNotes.*"
+- waitForAnimationToEnd
+- assertVisible:
+    text: ".*Create a checklist.*"
+- takeScreenshot: mobile-editor
+- tapOn: "Back to notes"
+- assertVisible: "All Notes"
+- tapOn: "Settings"
+- assertVisible: "Sync & Storage"
+- takeScreenshot: mobile-settings
+- tapOn: "Close"
+- assertVisible: "All Notes"
