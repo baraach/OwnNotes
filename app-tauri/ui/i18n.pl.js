@@ -576,4 +576,12 @@ STRINGS.pl = {
   "Connected to {url}": "Połączono z {url}",
   "Connecting…": "Łączenie…",
   "Disconnected. Notes stay on this computer.": "Rozłączono. Notatki pozostają na tym komputerze.",
+  "Modern design": "Nowoczesny design",
+  "Translucent bars and panels. Off gives solid surfaces.": "Przezroczyste paski i panele. Po wyłączeniu powierzchnie są jednolite.",
+  "A note can be in more than one notebook.": "Notatka może należeć do kilku notatników.",
+  "Choose at least one notebook.": "Wybierz co najmniej jeden notatnik.",
+  "Main notebook": "Główny notatnik",
+  "Notebooks updated": "Notatniki zaktualizowane",
+  "No notebooks yet": "Nie ma jeszcze notatników",
+  "No notebook — it stays uncategorized.": "Brak notatnika — notatka pozostanie nieskategoryzowana.",
 };

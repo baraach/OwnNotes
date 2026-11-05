@@ -615,4 +615,12 @@ STRINGS.ar = {
   "Connected to {url}": "متصل بـ {url}",
   "Connecting…": "جارٍ الاتصال…",
   "Disconnected. Notes stay on this computer.": "تم قطع الاتصال. تبقى الملاحظات على هذا الجهاز.",
+  "Modern design": "تصميم حديث",
+  "Translucent bars and panels. Off gives solid surfaces.": "أشرطة ولوحات شفافة. عند الإيقاف تصبح الأسطح صلبة.",
+  "A note can be in more than one notebook.": "يمكن أن تكون الملاحظة في أكثر من دفتر واحد.",
+  "Choose at least one notebook.": "اختر دفترًا واحدًا على الأقل.",
+  "Main notebook": "الدفتر الرئيسي",
+  "Notebooks updated": "تم تحديث الدفاتر",
+  "No notebooks yet": "لا توجد دفاتر بعد",
+  "No notebook — it stays uncategorized.": "لا دفتر — ستبقى الملاحظة غير مصنفة.",
 };

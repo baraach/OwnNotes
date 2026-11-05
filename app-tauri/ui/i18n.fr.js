@@ -576,4 +576,12 @@ STRINGS.fr = {
   "Connected to {url}": "Connecté à {url}",
   "Connecting…": "Connexion…",
   "Disconnected. Notes stay on this computer.": "Déconnecté. Les notes restent sur cet ordinateur.",
+  "Modern design": "Design moderne",
+  "Translucent bars and panels. Off gives solid surfaces.": "Barres et panneaux translucides. Désactivé, les surfaces deviennent opaques.",
+  "A note can be in more than one notebook.": "Une note peut être dans plusieurs carnets.",
+  "Choose at least one notebook.": "Choisissez au moins un carnet.",
+  "Main notebook": "Carnet principal",
+  "Notebooks updated": "Carnets mis à jour",
+  "No notebooks yet": "Pas encore de carnets",
+  "No notebook — it stays uncategorized.": "Aucun carnet — la note restera non classée.",
 };

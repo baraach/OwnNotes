@@ -115,6 +115,8 @@ function translateDom(root = document.body) {
       el.title = t(el.dataset.enTitle);
     }
   }
+
+  if (typeof window.applyPlatformLabels === "function") window.applyPlatformLabels(root);
 }
 
 /** Apply a language: direction, translation, and a fresh render. */

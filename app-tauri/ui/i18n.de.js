@@ -576,4 +576,12 @@ STRINGS.de = {
   "Connected to {url}": "Verbunden mit {url}",
   "Connecting…": "Verbindung wird hergestellt…",
   "Disconnected. Notes stay on this computer.": "Getrennt. Die Notizen bleiben auf diesem Computer.",
+  "Modern design": "Modernes Design",
+  "Translucent bars and panels. Off gives solid surfaces.": "Durchscheinende Leisten und Flächen. Aus ergibt feste Oberflächen.",
+  "A note can be in more than one notebook.": "Eine Notiz kann in mehreren Notizbüchern liegen.",
+  "Choose at least one notebook.": "Wählen Sie mindestens ein Notizbuch.",
+  "Main notebook": "Hauptnotizbuch",
+  "Notebooks updated": "Notizbücher aktualisiert",
+  "No notebooks yet": "Noch keine Notizbücher",
+  "No notebook — it stays uncategorized.": "Kein Notizbuch — die Notiz bleibt ohne Kategorie.",
 };

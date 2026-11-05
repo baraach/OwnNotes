@@ -614,4 +614,12 @@ STRINGS.tr = {
   "Connected to {url}": "{url} adresine bağlı",
   "Connecting…": "Bağlanıyor…",
   "Disconnected. Notes stay on this computer.": "Bağlantı kesildi. Notlar bu cihazda kalır.",
+  "Modern design": "Modern tasarım",
+  "Translucent bars and panels. Off gives solid surfaces.": "Saydam çubuklar ve paneller. Kapalıyken yüzeyler opak olur.",
+  "A note can be in more than one notebook.": "Bir not birden fazla defterde olabilir.",
+  "Choose at least one notebook.": "En az bir defter seçin.",
+  "Main notebook": "Ana defter",
+  "Notebooks updated": "Defterler güncellendi",
+  "No notebooks yet": "Henüz defter yok",
+  "No notebook — it stays uncategorized.": "Defter yok — not kategorisiz kalır.",
 };

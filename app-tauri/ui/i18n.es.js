@@ -576,4 +576,12 @@ STRINGS.es = {
   "Connected to {url}": "Conectado a {url}",
   "Connecting…": "Conectando…",
   "Disconnected. Notes stay on this computer.": "Desconectado. Las notas se quedan en este equipo.",
+  "Modern design": "Diseño moderno",
+  "Translucent bars and panels. Off gives solid surfaces.": "Barras y paneles translúcidos. Desactivado, las superficies son opacas.",
+  "A note can be in more than one notebook.": "Una nota puede estar en varios cuadernos.",
+  "Choose at least one notebook.": "Elige al menos un cuaderno.",
+  "Main notebook": "Cuaderno principal",
+  "Notebooks updated": "Cuadernos actualizados",
+  "No notebooks yet": "Aún no hay cuadernos",
+  "No notebook — it stays uncategorized.": "Sin cuaderno: la nota quedará sin categoría.",
 };

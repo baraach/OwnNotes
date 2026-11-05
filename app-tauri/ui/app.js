@@ -19,6 +19,56 @@ async function invoke(command, args, options) {
 
 const $ = (id) => document.getElementById(id);
 
+/** Macs use Command; Windows and Linux use Ctrl. */
+const PLATFORM = document.documentElement.dataset.platform || "mac";
+const IS_MAC = PLATFORM === "mac";
+
+function modKey(event) {
+  return IS_MAC ? event.metaKey : event.ctrlKey;
+}
+
+/** "⌘⇧F" → "Ctrl+Shift+F" on the platforms that use Ctrl. */
+function platformLabel(text) {
+  if (IS_MAC || typeof text !== "string" || !/[⌘⇧⌥⌫]/.test(text)) return text;
+  return text
+    .replace(/⇧/g, "Shift+")
+    .replace(/⌥/g, "Alt+")
+    .replace(/⌘/g, "Ctrl+")
+    .replace(/⌫/g, "Backspace")
+    .replace(/Shift\+Ctrl\+/g, "Ctrl+Shift+")
+    .replace(/Alt\+Ctrl\+/g, "Ctrl+Alt+")
+    .replace(/Shift\+Alt\+/g, "Alt+Shift+");
+}
+window.platformLabel = platformLabel;
+
+/** Rewrite shortcut labels in the fixed UI and in menus. Never touches
+ *  the note text or the user's note titles. */
+function applyPlatformLabels(root = document) {
+  if (IS_MAC) return;
+  const base = root instanceof Document ? root.body : root;
+  if (!base) return;
+
+  for (const el of base.querySelectorAll("[title], [placeholder], [aria-label]")) {
+    for (const attr of ["title", "placeholder", "aria-label"]) {
+      const value = el.getAttribute(attr);
+      if (!value) continue;
+      const next = platformLabel(value);
+      if (next !== value) el.setAttribute(attr, next);
+    }
+  }
+
+  for (const el of base.querySelectorAll("kbd, .keys, .tour-list, .welcome-points, .menu-hint")) {
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    for (const node of nodes) {
+      const next = platformLabel(node.nodeValue);
+      if (next !== node.nodeValue) node.nodeValue = next;
+    }
+  }
+}
+window.applyPlatformLabels = applyPlatformLabels;
+
 const state = {
   notes: [],
   notebooks: [],
@@ -103,6 +153,8 @@ async function loadUiPrefs() {
     "tag_order",
     "tag_colours",
     "collapsed_tags",
+    "glass",
+    "pane_widths",
   ]) {
     try {
       const value = await rawInvoke("ui_pref", { key, value: null });
@@ -146,7 +198,9 @@ function sortKey() {
 }
 
 function sortOrder() {
-  return pref(sortKey(), state.prefs.sort || "updated");
+  // Backend prefs arrive capitalised ("Updated"); the rest of the code and
+  // the saved per-view choice use lower case.
+  return String(pref(sortKey(), state.prefs.sort || "updated")).toLowerCase();
 }
 
 /** Does a note belong in the open view, before the search is applied? */
@@ -389,6 +443,7 @@ function render() {
   renderSaved();
   renderTemplatesRow();
   renderCards();
+  paintSort();
   renderEditor();
 }
 
@@ -666,6 +721,7 @@ function renderNotebooks() {
         else next.add(book.id);
         await setUiPref("collapsed", [...next]);
         renderNotebooks();
+        animateNav("notebooks");
       });
       line.insertBefore(caret, line.firstChild);
     }
@@ -931,7 +987,7 @@ function renderCards() {
     });
     if (state.selected.has(note.id)) card.classList.add("picked");
     card.addEventListener("click", (event) => {
-      if (event.metaKey || event.shiftKey) {
+      if (modKey(event) || event.shiftKey) {
         event.preventDefault();
         if (state.selected.has(note.id)) state.selected.delete(note.id);
         else state.selected.add(note.id);
@@ -1050,7 +1106,7 @@ function renderCards() {
         },
         { separator: true },
         { label: "Move to another notebook…", icon: icon.book, run: () => moveNote(note) },
-        { label: "Add to notebooks…", icon: icon.book, run: () => addToNotebook(note) },
+        { label: "Add to notebooks…", icon: icon.book, run: () => chooseNotebooks(note) },
         {
           label: "Remove from notebook",
           icon: icon.book,
@@ -1180,7 +1236,11 @@ function renderEditor() {
     // cleaning can change the HTML (e.g. "&" → "&amp;") without an edit.
     state.shownHTML = $("body").innerHTML;
   }
-  $("chip").textContent = state.notebooks.find((b) => b.id === note.notebook_id)?.name || "Notebook";
+  const places = (note.notebooks || [note.notebook_id]).length;
+  const home = note.notebook_id === 0
+    ? t("Uncategorized")
+    : state.notebooks.find((b) => b.id === note.notebook_id)?.name || t("Notebook");
+  $("chip").textContent = places > 1 ? `${home} +${places - 1}` : home;
   updateWords();
   $("trash-note").title = note.trashed ? "Restore from Trash" : "Move to Trash";
   $("trash-note").classList.toggle("on", note.trashed);
@@ -1205,6 +1265,55 @@ function setView(view) {
   const first = visibleNotes()[0];
   state.current = first ? first.id : null;
   render();
+  animateList();
+  animateNote();
+  animateSelection();
+}
+
+/** A fresh list slides in when the view changes; ordinary refreshes don't. */
+function animateList() {
+  const box = $("cards");
+  box.classList.remove("list-enter");
+  void box.offsetWidth;
+  box.classList.add("list-enter");
+  clearTimeout(listEnterTimer);
+  listEnterTimer = setTimeout(() => box.classList.remove("list-enter"), 420);
+}
+
+/** The note page crossfades when a different note is opened. */
+function animateNote() {
+  const editor = $("editor-pane");
+  editor.classList.remove("note-enter");
+  void editor.offsetWidth;
+  editor.classList.add("note-enter");
+  clearTimeout(noteEnterTimer);
+  noteEnterTimer = setTimeout(() => editor.classList.remove("note-enter"), 300);
+}
+
+/** Expanding a notebook or tag folds its rows in. */
+function animateNav(id) {
+  const box = $(id);
+  box.classList.remove("nav-enter");
+  void box.offsetWidth;
+  box.classList.add("nav-enter");
+  clearTimeout(navTimer);
+  navTimer = setTimeout(() => box.classList.remove("nav-enter"), 320);
+}
+
+/** The sidebar and list selections fade in rather than appearing. */
+function animateSelection() {
+  const sidebar = $("sidebar");
+  const cards = $("cards");
+  for (const el of [sidebar, cards]) {
+    el.classList.remove("selection-enter");
+    void el.offsetWidth;
+    el.classList.add("selection-enter");
+  }
+  clearTimeout(selectionTimer);
+  selectionTimer = setTimeout(() => {
+    sidebar.classList.remove("selection-enter");
+    cards.classList.remove("selection-enter");
+  }, 260);
 }
 
 function selectNote(id) {
@@ -1213,6 +1322,13 @@ function selectNote(id) {
   state.current = id;
   renderCards();
   renderEditor();
+  animateNote();
+  const cards = $("cards");
+  cards.classList.remove("selection-enter");
+  void cards.offsetWidth;
+  cards.classList.add("selection-enter");
+  clearTimeout(selectionTimer);
+  selectionTimer = setTimeout(() => cards.classList.remove("selection-enter"), 240);
 }
 
 function currentNote() {
@@ -1659,31 +1775,6 @@ async function trashMany(ids) {
   await refresh();
 }
 
-async function addToNotebook(note) {
-  const inNotebooks = note.notebooks || [note.notebook_id];
-  const options = state.notebooks.filter((book) => !inNotebooks.includes(book.id));
-  if (!options.length) return toast("This note is in every notebook already");
-  const id = await Dialog.pick({
-    title: "Add to notebooks",
-    placeholder: "Find a notebook",
-    items: options.map((book) => ({
-      label: book.name,
-      sub: `${book.count} notes`,
-      value: book.id,
-      colour: COLOURS[book.color % COLOURS.length],
-    })),
-  });
-  if (id == null) return;
-  try {
-    await invoke("add_to_notebook", { id: note.id, notebook: id });
-    await refresh();
-    const name = state.notebooks.find((book) => book.id === id)?.name || t("the notebook");
-    toast(t("Added to {name}", { name }));
-  } catch (error) {
-    toast(String(error));
-  }
-}
-
 async function addTags(note) {
   const value = await Dialog.ask({
     title: "Add tags",
@@ -1739,9 +1830,84 @@ async function moveNote(note) {
   toast(t("Moved to {name}", { name: state.notebooks.find((b) => b.id === id)?.name || t("notebook") }));
 }
 
+/**
+ * Which notebooks is this note in? A note can have one main notebook
+ * (`notebook_id`, where its file is written) and any number of extras
+ * (`also_in`). Ticking and unticking here keeps both in step: at least one
+ * notebook must remain, and if the main one is removed the first remaining
+ * notebook takes over.
+ */
+async function chooseNotebooks(note) {
+  await flush();
+  const current = new Set(note.notebooks || [note.notebook_id]);
+  const ids = await Dialog.multiPick({
+    title: "Notebooks",
+    hint: "A note can be in more than one notebook.",
+    hintWhenEmpty: "No notebook — it stays uncategorized.",
+    placeholder: "Find a notebook",
+    empty: "No notebooks yet",
+    minimum: 0,
+    items: state.notebooks.map((book) => ({
+      label: book.name,
+      sub: book.id === note.notebook_id
+        ? t("Main notebook")
+        : plural(book.count, "{n} note", "{n} notes"),
+      value: book.id,
+      colour: COLOURS[book.color % COLOURS.length],
+      checked: current.has(book.id),
+    })),
+  });
+  if (ids === null) return;
+
+  if (!ids.length) {
+    if (note.notebook_id === 0) return;
+    try {
+      await invoke("move_note", { id: note.id, notebook: 0 });
+      await refresh();
+      toast("Moved to Uncategorized");
+    } catch (error) {
+      toast(String(error));
+      await refresh();
+    }
+    return;
+  }
+
+  const wanted = new Set(ids);
+  const oldPrimary = note.notebook_id;
+  const primary = wanted.has(oldPrimary) ? oldPrimary : ids[0];
+  const unchanged = primary === oldPrimary
+    && ids.length === current.size
+    && ids.every((id) => current.has(id));
+  if (unchanged) return;
+
+  try {
+    if (primary !== oldPrimary) {
+      await invoke("move_note", { id: note.id, notebook: primary });
+      current.delete(oldPrimary);
+      current.add(primary);
+      // The old main notebook can also be in `also_in`; moving alone
+      // doesn't remove it there.
+      if (!wanted.has(oldPrimary)) {
+        await invoke("remove_from_notebook", { id: note.id, notebook: oldPrimary });
+      }
+    }
+    for (const id of ids) {
+      if (!current.has(id)) await invoke("add_to_notebook", { id: note.id, notebook: id });
+    }
+    for (const id of current) {
+      if (!wanted.has(id)) await invoke("remove_from_notebook", { id: note.id, notebook: id });
+    }
+    await refresh();
+    toast("Notebooks updated");
+  } catch (error) {
+    toast(String(error));
+    await refresh();
+  }
+}
+
 $("chip-button").addEventListener("click", () => {
   const note = currentNote();
-  if (note) moveNote(note);
+  if (note) chooseNotebooks(note);
 });
 $("star").addEventListener("click", () => toggleFlag("starred"));
 
@@ -1758,9 +1924,34 @@ $("body").addEventListener("input", () => {
   updateWords();
 });
 
-$("sort").addEventListener("change", async (event) => {
-  await setUiPref(sortKey(), event.target.value);
+const SORT_LABELS = {
+  updated: "Last edited",
+  created: "Date created",
+  title: "Title",
+  manual: "Manual",
+};
+
+function paintSort() {
+  const label = SORT_LABELS[sortOrder()] || SORT_LABELS.updated;
+  $("sort").title = `${t("Sort notes")}: ${t(label)}`;
+}
+
+async function chooseSort(value) {
+  await setUiPref(sortKey(), value);
   renderCards();
+  paintSort();
+}
+
+$("sort").addEventListener("click", () => {
+  const button = $("sort");
+  const rect = button.getBoundingClientRect();
+  const current = sortOrder();
+  Dialog.menu(rect.left, rect.bottom + 4, Object.entries(SORT_LABELS).map(([value, label]) => ({
+    label,
+    check: value === current,
+    checked: value === current,
+    run: () => chooseSort(value),
+  })), { anchor: rect, align: "end" });
 });
 
 $("search-scope").addEventListener("click", () => {
@@ -1804,7 +1995,22 @@ $("new-notebook").addEventListener("click", async () => {
 
 $("toggle-sidebar").addEventListener("click", () => {
   const sidebar = $("sidebar");
-  sidebar.style.display = sidebar.style.display === "none" ? "" : "none";
+  const hidden = sidebar.classList.toggle("is-hidden");
+  // `inert` keeps the collapsed rows out of the tab order as well.
+  sidebar.toggleAttribute("inert", hidden);
+  sidebar.setAttribute("aria-hidden", hidden ? "true" : "false");
+
+  clearTimeout(sidebarTimer);
+  sidebar.classList.remove("sidebar-enter");
+  if (!hidden) {
+    // Let the rows catch up one after another while the pane unfolds.
+    [...sidebar.querySelectorAll(".row, .section-title")].forEach((el, i) => {
+      el.style.setProperty("--i", Math.min(i, 10));
+    });
+    void sidebar.offsetWidth;
+    sidebar.classList.add("sidebar-enter");
+    sidebarTimer = setTimeout(() => sidebar.classList.remove("sidebar-enter"), 520);
+  }
 });
 
 // ------------------------------------------------------------ formatting
@@ -1848,6 +2054,12 @@ bar.querySelector("button[data-hl]").addEventListener("click", () => {
 
 let toastTimer = null;
 let showWelcome = false;
+let listEnterTimer = 0;
+let noteEnterTimer = 0;
+let selectionTimer = 0;
+let infoCloseTimer = 0;
+let sidebarTimer = 0;
+let navTimer = 0;
 
 /** A short message, with an optional "Undo" button. */
 function toast(message, action = null) {
@@ -1955,6 +2167,8 @@ function renderSettings() {
     accents.appendChild(dot);
   });
 
+  $("t-glass").checked = pref("glass", true);
+
   $("g-counts").checked = state.prefs.show_counts !== false;
   $("g-compact").checked = !!state.prefs.compact_list;
   $("g-subnotes").checked = pref("show_sub_notes", true);
@@ -2031,6 +2245,12 @@ for (const button of document.querySelectorAll("#theme-mode button")) {
     renderSettings();
   });
 }
+
+$("t-glass").addEventListener("change", async (event) => {
+  const box = event.currentTarget;
+  await setUiPref("glass", box.checked);
+  applyGlass();
+});
 
 $("g-counts").addEventListener("change", () => {
   state.prefs.show_counts = $("g-counts").checked;
@@ -2244,7 +2464,7 @@ $("g-delete").addEventListener("click", async () => {
   location.reload();
 });
 
-$("info-close").addEventListener("click", () => ($("info-panel").hidden = true));
+$("info-close").addEventListener("click", closeInfoPanel);
 
 // "System" follows the computer's light or dark mode, also when it changes.
 const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
@@ -2259,6 +2479,11 @@ function applyTheme() {
   }
   const dark = mode === "Dark" || (mode === "System" && darkQuery.matches);
   document.documentElement.dataset.theme = dark ? "dark" : "light";
+}
+
+/** The modern interface is a taste; Settings › Themes keeps it, the CSS does the work. */
+function applyGlass() {
+  document.documentElement.dataset.glass = pref("glass", true) ? "on" : "off";
 }
 
 /** Light / Dark / System, or one of the named palettes. */
@@ -2277,6 +2502,9 @@ darkQuery.addEventListener("change", applyTheme);
 
 async function applyPrefs() {
   applyTheme();
+  applyGlass();
+  applyPaneWidths();
+  requestAnimationFrame(positionGrips);
   const [accent, soft] = ACCENTS[(state.prefs.accent || 0) % ACCENTS.length];
   document.documentElement.style.setProperty("--accent", accent);
   document.documentElement.style.setProperty("--accent-soft", soft);
@@ -2876,11 +3104,23 @@ $("sync-pill").addEventListener("click", async () => {
 $("info").addEventListener("click", async () => {
   const panel = $("info-panel");
   if (!panel.hidden) {
-    panel.hidden = true;
+    closeInfoPanel();
     return;
   }
   await showInfo();
 });
+
+/** The inspector folds to zero width before it is hidden. */
+function closeInfoPanel() {
+  const panel = $("info-panel");
+  if (panel.hidden || panel.classList.contains("is-closing")) return;
+  panel.classList.add("is-closing");
+  clearTimeout(infoCloseTimer);
+  infoCloseTimer = setTimeout(() => {
+    panel.hidden = true;
+    panel.classList.remove("is-closing");
+  }, 230);
+}
 
 async function showInfo() {
   const note = currentNote();
@@ -2953,7 +3193,10 @@ async function showInfo() {
     body.appendChild(none);
   }
 
-  $("info-panel").hidden = false;
+  const panel = $("info-panel");
+  clearTimeout(infoCloseTimer);
+  panel.classList.remove("is-closing");
+  panel.hidden = false;
 }
 
 $("history").addEventListener("click", async () => {
@@ -3233,6 +3476,7 @@ function renderTags() {
         else next.add(tag);
         await setUiPref("collapsed_tags", [...next]);
         renderTags();
+        animateNav("tags");
       });
       line.insertBefore(caret, line.firstChild);
     }
@@ -3430,10 +3674,12 @@ function insertHTML(html) {
 }
 
 window.addEventListener("keydown", (event) => {
-  if (!event.metaKey) return;
+  if (!modKey(event)) return;
   // Behind the lock screen no shortcut works (typing the passcode still does).
   if (locked) return;
-  if (event.key === "s" && !event.shiftKey) {
+  // Shift turns "s" into "S" in every browser; compare the lower-case key.
+  const key = event.key.toLowerCase();
+  if (key === "s" && !event.shiftKey) {
     event.preventDefault();
     flush().then(() => toast("Saved"));
     return;
@@ -3451,34 +3697,34 @@ window.addEventListener("keydown", (event) => {
       .then(() => toast(note.trashed ? "Restored" : "Moved to Trash"));
     return;
   }
-  if (event.key === "s" && event.shiftKey) {
+  if (key === "s" && event.shiftKey) {
     event.preventDefault();
     const note = currentNote();
     if (note) toggleQuick(note.id);
     return;
   }
-  if (event.key === "k") {
+  if (key === "k") {
     event.preventDefault();
     quickSwitch();
     return;
   }
-  if (event.key === "j") {
+  if (key === "j") {
     event.preventDefault();
     openSpaceMenu();
     return;
   }
-  if (event.key === "p" && event.shiftKey) {
+  if (key === "p" && event.shiftKey) {
     event.preventDefault();
     const note = currentNote();
     if (note) toggleFlag("pinned");
     return;
   }
-  if (event.key === "f" && !event.shiftKey) {
+  if (key === "f" && !event.shiftKey) {
     event.preventDefault();
     openFind();
     return;
   }
-  if (event.key === "p" && event.altKey) {
+  if (key === "p" && event.altKey) {
     event.preventDefault();
     exportPng()
       .then((path) => {
@@ -3487,20 +3733,20 @@ window.addEventListener("keydown", (event) => {
       .catch((error) => toast(String(error)));
     return;
   }
-  if (event.key === "p") {
+  if (key === "p") {
     event.preventDefault();
     $("print").click();
     return;
   }
-  if (event.shiftKey && event.key.toLowerCase() === "f") {
+  if (event.shiftKey && key === "f") {
     event.preventDefault();
     $("focus").click();
   }
-  if (event.key === "e") {
+  if (key === "e") {
     event.preventDefault();
     $("export").click();
   }
-  if (event.key === "/") {
+  if (key === "/") {
     event.preventDefault();
     const details = `<details open><summary>${t("Section")}</summary>${t("Write here…")}</details>`;
     insertHTML(details);
@@ -3687,6 +3933,8 @@ function windowNote() {
 
 async function boot() {
   await loadUiPrefs();
+  applyGlass();
+  readPaneWidths();
   applyLanguageState(pref("lang", "en"));
 
   // A passcode set means the notes stay closed until it is given. Nothing is
@@ -3718,7 +3966,7 @@ async function openApp() {
   applyFont();
   applyLanguageState(pref("lang", "en"));
   applyPrefs();
-  $("sort").value = sortOrder();
+  paintSort();
   await loadSyncSetup();
   if (showWelcome) {
     // Asked once per launch while no folder is connected.
@@ -3780,12 +4028,215 @@ $("lock").addEventListener("click", async () => {
   }
 });
 
+
+// ------------------------------------------------------------ pane widths
+
+/** The sidebar, note list and info panel can be dragged wider or narrower. */
+const PANE_DEFAULTS = { sidebar: 220, list: 290, info: 250 };
+const PANE_LIMITS = { sidebar: [150, 420], list: [200, 560], info: [180, 460] };
+const paneWidths = { ...PANE_DEFAULTS };
+
+/** Read the widths back from app.json; called once, before the first paint. */
+function readPaneWidths() {
+  const saved = pref("pane_widths", {}) || {};
+  for (const name of Object.keys(PANE_DEFAULTS)) {
+    const value = Number(saved[name]);
+    if (Number.isFinite(value)) paneWidths[name] = clampPane(name, value);
+  }
+  document.body.classList.add("no-pane-transition");
+  applyPaneWidths();
+  requestAnimationFrame(() => document.body.classList.remove("no-pane-transition"));
+}
+
+function clampPane(name, width) {
+  const [min, max] = PANE_LIMITS[name];
+  return Math.round(Math.max(min, Math.min(max, width)));
+}
+
+function applyPaneWidths() {
+  const style = document.documentElement.style;
+  style.setProperty("--pane-sidebar", `${paneWidths.sidebar}px`);
+  style.setProperty("--pane-list", `${paneWidths.list}px`);
+  style.setProperty("--pane-info", `${paneWidths.info}px`);
+  for (const grip of document.querySelectorAll(".pane-grip")) {
+    grip.setAttribute("aria-valuenow", String(paneWidths[grip.dataset.pane]));
+    grip.setAttribute("aria-valuemin", String(PANE_LIMITS[grip.dataset.pane][0]));
+    grip.setAttribute("aria-valuemax", String(PANE_LIMITS[grip.dataset.pane][1]));
+  }
+}
+
+/** Keep each grip over the gap between the panes it resizes. */
+function positionGrips() {
+  if (document.documentElement.dataset.glass !== "on") return;
+  const panes = document.querySelector(".panes");
+  const sidebar = $("sidebar");
+  const list = $("list-pane");
+  const editor = $("editor-pane");
+  const info = $("info-panel");
+  if (!panes || !sidebar || !list || !editor || !info) return;
+
+  const base = panes.getBoundingClientRect();
+  const s = sidebar.getBoundingClientRect();
+  const l = list.getBoundingClientRect();
+  const e = editor.getBoundingClientRect();
+  const i = info.getBoundingClientRect();
+
+  const place = (name, x, visible) => {
+    const grip = document.querySelector(`.pane-grip[data-pane="${name}"]`);
+    if (!grip) return;
+    grip.style.display = visible ? "block" : "none";
+    if (visible) grip.style.left = `${Math.round(x - base.left)}px`;
+  };
+
+  const sidebarShown = !sidebar.classList.contains("is-hidden") && s.width > 2;
+  const listShown = !document.body.classList.contains("focus") && l.width > 2;
+  place("sidebar", (s.right + l.left) / 2, sidebarShown);
+  place("list", (l.right + e.left) / 2, listShown);
+  place("info", (e.right + i.left) / 2, !info.hidden && !info.classList.contains("is-closing") && i.width > 2);
+}
+
+function savePaneWidths() {
+  setUiPref("pane_widths", { ...paneWidths });
+}
+
+/** Grow or shrink one pane, without squeezing the editor below 340px. */
+function resizePane(name, startWidth, delta, editorWidth) {
+  const [min] = PANE_LIMITS[name];
+  const room = Math.max(0, editorWidth - 340);
+  const max = Math.min(PANE_LIMITS[name][1], startWidth + room);
+  paneWidths[name] = Math.round(Math.max(min, Math.min(max, startWidth + delta)));
+  applyPaneWidths();
+  positionGrips();
+}
+
+function bindPaneGrips() {
+  for (const grip of document.querySelectorAll(".pane-grip")) {
+    const name = grip.dataset.pane;
+    grip.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      const startX = event.clientX;
+      const startWidth = paneWidths[name];
+      const editorWidth = $("editor-pane").getBoundingClientRect().width;
+      const rtl = document.documentElement.dir === "rtl";
+      const move = (e) => {
+        const delta = (rtl ? -1 : 1) * (name === "info" ? -1 : 1) * (e.clientX - startX);
+        resizePane(name, startWidth, delta, editorWidth);
+      };
+      const end = () => {
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", end);
+        window.removeEventListener("pointercancel", end);
+        document.body.classList.remove("resizing");
+        grip.classList.remove("dragging");
+        savePaneWidths();
+      };
+      document.body.classList.add("resizing");
+      grip.classList.add("dragging");
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", end);
+      window.addEventListener("pointercancel", end);
+    });
+
+    grip.addEventListener("keydown", (event) => {
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+      event.preventDefault();
+      const direction = event.key === "ArrowRight" ? 1 : -1;
+      const rtl = document.documentElement.dir === "rtl";
+      const step = 16 * direction * (rtl ? -1 : 1) * (name === "info" ? -1 : 1);
+      const editorWidth = $("editor-pane").getBoundingClientRect().width;
+      resizePane(name, paneWidths[name], step, editorWidth);
+      savePaneWidths();
+    });
+
+    grip.addEventListener("dblclick", () => {
+      paneWidths[name] = PANE_DEFAULTS[name];
+      applyPaneWidths();
+      positionGrips();
+      savePaneWidths();
+    });
+  }
+}
+
+bindPaneGrips();
+const paneResizeObserver = new ResizeObserver(() => positionGrips());
+for (const el of [document.querySelector(".panes"), $("sidebar"), $("list-pane"), $("editor-pane"), $("info-panel")]) {
+  if (el) paneResizeObserver.observe(el);
+}
+window.addEventListener("resize", positionGrips);
+// A language switch or the glass toggle moves the panes without resizing
+// them, so listen for those too.
+new MutationObserver(positionGrips).observe(document.documentElement, {
+  attributes: true,
+  attributeFilter: ["dir", "data-glass"],
+});
+new MutationObserver(positionGrips).observe(document.body, {
+  attributes: true,
+  attributeFilter: ["class", "dir"],
+});
+requestAnimationFrame(positionGrips);
+
+
+// ------------------------------------------------------- closing overlays
+
+// The app closes modals by setting hidden. Catch that, let the overlay fade
+// first, and only then really hide it. Re-opening during the fade cancels it.
+const closingOverlays = new Map();
+const settledOverlays = new WeakSet();
+const reopeningOverlays = new WeakSet();
+
+function hideModalAfterFade(modal) {
+  if (closingOverlays.has(modal)) return;
+  if (settledOverlays.has(modal)) {
+    settledOverlays.delete(modal);
+    return;
+  }
+  reopeningOverlays.add(modal);
+  modal.hidden = false;
+  modal.classList.add("is-closing");
+  const timer = setTimeout(() => {
+    closingOverlays.delete(modal);
+    modal.classList.remove("is-closing");
+    settledOverlays.add(modal);
+    modal.hidden = true;
+  }, 190);
+  closingOverlays.set(modal, timer);
+}
+
+const modalHider = new MutationObserver((records) => {
+  for (const record of records) {
+    const el = record.target;
+    if (!(el instanceof HTMLElement) || !el.classList.contains("modal")) continue;
+    if (el.hidden) {
+      if (settledOverlays.has(el)) {
+        settledOverlays.delete(el);
+        continue;
+      }
+      hideModalAfterFade(el);
+    } else {
+      if (reopeningOverlays.has(el)) {
+        reopeningOverlays.delete(el);
+        continue;
+      }
+      const timer = closingOverlays.get(el);
+      if (timer) {
+        clearTimeout(timer);
+        closingOverlays.delete(el);
+        el.classList.remove("is-closing");
+      }
+    }
+  }
+});
+modalHider.observe(document.body, { attributes: true, attributeFilter: ["hidden"], subtree: true });
+
+applyPlatformLabels();
+
 // ------------------------------------------------------------ start
 
 window.addEventListener("keydown", (event) => {
-  if (!event.metaKey) return;
+  if (!modKey(event)) return;
   if (locked) return;
-  if (event.key === "n") {
+  if (event.key.toLowerCase() === "n") {
     event.preventDefault();
     $("new-note").click();
   }

@@ -14,6 +14,13 @@ const Dialog = (() => {
     return modal;
   }
 
+  /** Remove a sheet after the close animation (see .modal.is-closing). */
+  function closeSheet(modal) {
+    if (!modal.isConnected || modal.classList.contains("is-closing")) return;
+    modal.classList.add("is-closing");
+    setTimeout(() => modal.remove(), 190);
+  }
+
   /**
    * Ask for a line of text.
    * options: title, label, value, placeholder, hint, ok, password, multiline,
@@ -66,7 +73,7 @@ const Dialog = (() => {
 
     return new Promise((resolve) => {
       const done = (value) => {
-        modal.remove();
+        closeSheet(modal);
         resolve(value);
       };
       modal.querySelector(".dialog-ok").addEventListener("click", () => done(input.value));
@@ -107,7 +114,7 @@ const Dialog = (() => {
 
     return new Promise((resolve) => {
       const done = (value) => {
-        modal.remove();
+        closeSheet(modal);
         resolve(value);
       };
       function paint() {
@@ -224,7 +231,7 @@ const Dialog = (() => {
         row.appendChild(hint);
       }
       if (item.danger) row.classList.add("danger");
-      if (item.checked) row.classList.add("checked");
+      if (item.checked || item.check) row.classList.add("checked");
       row.addEventListener("click", () => {
         box.remove();
         item.run();
@@ -232,6 +239,7 @@ const Dialog = (() => {
       box.appendChild(row);
     }
     document.body.appendChild(box);
+    if (typeof window.applyPlatformLabels === "function") window.applyPlatformLabels(box);
     place(box, options.anchor || { x, y }, { align: options.align || "start", gap: options.anchor ? 4 : 0 });
     const close = (event) => {
       if (box.contains(event.target)) return;
@@ -268,7 +276,7 @@ const Dialog = (() => {
         if (done) return;
         done = true;
         document.removeEventListener("keydown", onKey, true);
-        modal.remove();
+        closeSheet(modal);
         resolve(value);
       };
       modal.querySelector(".dialog-cancel").addEventListener("click", () => close(false));
@@ -348,7 +356,7 @@ const Dialog = (() => {
       const close = (result) => {
         if (done) return;
         done = true;
-        modal.remove();
+        closeSheet(modal);
         document.removeEventListener("keydown", onKey, true);
         resolve(result);
       };
@@ -376,5 +384,108 @@ const Dialog = (() => {
     });
   }
 
-  return { ask, pick, menu, confirm, formula, place };
+  /**
+   * Pick any number of items from a list you can type to filter.
+   * items: [{ label, sub?, value, colour?, checked? }]
+   * Returns the chosen values in list order, or null when cancelled.
+   */
+  function multiPick({
+    title,
+    items,
+    placeholder = "Search",
+    empty = "Nothing matches",
+    hint,
+    hintWhenEmpty,
+    minimum = 0,
+  }) {
+    const modal = sheet(`
+      <h3>${escapeHTML(t(title))}</h3>
+      ${hint ? `<p class="hint">${escapeHTML(t(hint))}</p>` : ""}
+      <input class="dialog-input" placeholder="${escapeHTML(t(placeholder))}" />
+      <div class="pick-list multi-list"></div>
+      ${hintWhenEmpty ? `<p class="hint dialog-count" hidden>${escapeHTML(t(hintWhenEmpty))}</p>` : ""}
+      <div class="modal-row">
+        <span class="spacer"></span>
+        <button class="ghost dialog-cancel">${escapeHTML(t("Cancel"))}</button>
+        <button class="primary dialog-ok">${escapeHTML(t("OK"))}</button>
+      </div>`);
+    const input = modal.querySelector(".dialog-input");
+    const list = modal.querySelector(".multi-list");
+    const ok = modal.querySelector(".dialog-ok");
+    const count = modal.querySelector(".dialog-count");
+    const chosen = new Set(items.filter((item) => item.checked).map((item) => item.value));
+
+    const selected = () => items.filter((item) => chosen.has(item.value)).map((item) => item.value);
+
+    function sync() {
+      ok.disabled = chosen.size < minimum;
+      if (count) count.hidden = chosen.size > 0;
+    }
+
+    function paint() {
+      const q = input.value.trim().toLowerCase();
+      const shown = q
+        ? items.filter((item) => (item.label + " " + (item.sub || "")).toLowerCase().includes(q))
+        : items;
+      list.innerHTML = "";
+      if (!shown.length) {
+        const none = document.createElement("p");
+        none.className = "hint";
+        none.textContent = t(empty);
+        list.appendChild(none);
+        return;
+      }
+      for (const item of shown) {
+        const row = document.createElement("button");
+        row.type = "button";
+        row.className = "pick-item multi-item" + (chosen.has(item.value) ? " on" : "");
+        row.innerHTML = `<span class="pick-check"></span>${item.colour ? '<span class="pick-dot"></span>' : ""}<span class="pick-text"><b></b><i></i></span>`;
+        if (item.colour) row.querySelector(".pick-dot").style.background = item.colour;
+        row.querySelector("b").textContent = item.label;
+        row.querySelector("i").textContent = item.sub || "";
+        row.addEventListener("click", () => {
+          if (chosen.has(item.value)) chosen.delete(item.value);
+          else chosen.add(item.value);
+          row.classList.toggle("on", chosen.has(item.value));
+          sync();
+        });
+        list.appendChild(row);
+      }
+    }
+
+    return new Promise((resolve) => {
+      const done = (value) => {
+        closeSheet(modal);
+        resolve(value);
+      };
+      sync();
+      paint();
+      input.addEventListener("input", paint);
+      input.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          done(null);
+        } else if (event.key === "Enter" && !ok.disabled) {
+          event.preventDefault();
+          done(selected());
+        }
+      });
+      ok.addEventListener("click", () => {
+        if (!ok.disabled) done(selected());
+      });
+      modal.querySelector(".dialog-cancel").addEventListener("click", () => done(null));
+      modal.addEventListener("mousedown", (event) => {
+        if (event.target === modal) done(null);
+      });
+      modal.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          done(null);
+        }
+      });
+      setTimeout(() => input.focus());
+    });
+  }
+
+  return { ask, pick, multiPick, menu, confirm, formula, place };
 })();

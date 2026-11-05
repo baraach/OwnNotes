@@ -1033,49 +1033,36 @@ const Editor = (() => {
     button.addEventListener("click", () => actions[button.dataset.x]());
   }
 
-  // Buttons that don't fit move into a "…" menu (the same nodes, so their
-  // click handlers come along).
+  // The bar scrolls instead of hiding tools behind a "…" menu. Vertical
+  // wheel over it moves it sideways, for mice without a horizontal gesture.
   const bar = document.querySelector(".format-bar");
-  const more = document.createElement("button");
-  more.className = "more";
-  more.title = t("More");
-  more.innerHTML =
-    '<svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.2" class="dot"/><circle cx="12" cy="12" r="1.2" class="dot"/><circle cx="18" cy="12" r="1.2" class="dot"/></svg>';
-  bar.appendChild(more);
-  const overflow = document.createElement("div");
-  overflow.className = "format-overflow format-bar";
-  overflow.hidden = true;
-  document.body.appendChild(overflow);
-  overflow.addEventListener("mousedown", (event) => event.preventDefault());
-  more.addEventListener("mousedown", (event) => event.preventDefault());
 
-  function fitBar() {
-    for (const el of [...overflow.children]) bar.insertBefore(el, more);
-    more.hidden = true;
-    if (bar.scrollWidth <= bar.clientWidth + 1) return;
-    more.hidden = false;
-    const items = [...bar.children].filter((el) => el !== more);
-    while (bar.scrollWidth > bar.clientWidth + 1 && items.length > 1) {
-      overflow.prepend(items.pop());
-    }
-    // No divider left dangling at the end of the bar (the menu hides them).
-    while (more.previousElementSibling?.classList.contains("sep")) overflow.prepend(more.previousElementSibling);
+  /** Fade whichever edge still has tools beyond it. */
+  function paintBarEdges() {
+    const room = bar.scrollWidth - bar.clientWidth;
+    bar.classList.toggle("is-scrollable", room > 1);
+    bar.classList.toggle("at-start", bar.scrollLeft <= 1);
+    bar.classList.toggle("at-end", bar.scrollLeft >= room - 1);
   }
-  new ResizeObserver(() => {
-    overflow.hidden = true;
-    fitBar();
-  }).observe(bar);
-  more.addEventListener("click", () => {
-    if (!overflow.hidden) return (overflow.hidden = true);
-    const rect = more.getBoundingClientRect();
-    overflow.hidden = false;
-    Dialog.place(overflow, rect, { align: "end", above: true, gap: 6 });
-  });
-  overflow.addEventListener("click", (event) => {
-    if (event.target.closest("button:not(.drop)")) overflow.hidden = true;
-  });
-  document.addEventListener("mousedown", (event) => {
-    if (!overflow.hidden && !overflow.contains(event.target) && !more.contains(event.target)) overflow.hidden = true;
+
+  bar.addEventListener("scroll", paintBarEdges, { passive: true });
+  bar.addEventListener(
+    "wheel",
+    (event) => {
+      if (event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
+      const room = bar.scrollWidth - bar.clientWidth;
+      if (room <= 1) return;
+      event.preventDefault();
+      bar.scrollLeft = Math.max(0, Math.min(room, bar.scrollLeft + event.deltaY));
+    },
+    { passive: false },
+  );
+  new ResizeObserver(paintBarEdges).observe(bar);
+  paintBarEdges();
+  // Start at the first tools, whatever the engine restored for the bar.
+  requestAnimationFrame(() => {
+    bar.scrollLeft = 0;
+    paintBarEdges();
   });
 
   // ------------------------------------------------------------ "Aa": font and size

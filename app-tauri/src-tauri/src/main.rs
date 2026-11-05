@@ -1065,9 +1065,6 @@ fn move_note(state: State<'_, Mutex<App>>, id: u64, notebook: u64) -> Result<(),
     if notebook != 0 && !app.doc.has_notebook(notebook) {
         return Err("That notebook is gone".into());
     }
-    if !app.doc.has_notebook(notebook) {
-        return Err("That notebook is gone".into());
-    }
     let before = app.doc.note(id).map(|note| note.notebook_id);
     if let Some(note) = app.doc.note_mut(id) {
         note.notebook_id = notebook;
