@@ -4,6 +4,13 @@
    and pages that push rather than pop up. Colours derive from the app's theme
    tokens so accent colours and named looks keep working. */
 
+/* A double tap should select text or press a control, never zoom the whole
+   app like a photo. Pinch-to-zoom still works. */
+html[data-platform="ios"],
+html[data-platform="ios"] body {
+  touch-action: manipulation;
+}
+
 /* ---------------------------------------------------------------- tokens */
 
 html[data-platform="ios"][data-mobile="true"] {
