@@ -1,7 +1,11 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "The main and note windows. Dragging the glass titlebar needs the window start-dragging permission.",
+  "description": "The main and note windows. Dragging the title bar needs the window start-dragging permission.",
   "windows": ["*"],
-  "permissions": ["core:default", "core:window:allow-start-dragging"]
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-set-theme"
+  ]
 }

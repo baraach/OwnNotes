@@ -2475,10 +2475,31 @@ function applyTheme() {
   const named = pref("theme_name", "");
   if (named) {
     document.documentElement.dataset.theme = named.toLowerCase();
+    syncWindowTheme();
     return;
   }
   const dark = mode === "Dark" || (mode === "System" && darkQuery.matches);
   document.documentElement.dataset.theme = dark ? "dark" : "light";
+  syncWindowTheme();
+}
+
+/** Windows and Linux draw the native title bar above our toolbar; ask it to
+ *  follow the app theme. macOS keeps its own traffic-light appearance. */
+function syncWindowTheme() {
+  if (IS_MAC) return;
+  try {
+    const win = window.__TAURI__?.window?.getCurrentWindow?.();
+    if (!win || typeof win.setTheme !== "function") return;
+    const named = pref("theme_name", "");
+    const mode = state.prefs.theme || "System";
+    if (!named && mode === "System") {
+      Promise.resolve(win.setTheme(null)).catch(() => {});
+      return;
+    }
+    const darkThemes = new Set(["dark", "nord", "graphite", "forest"]);
+    const theme = darkThemes.has(document.documentElement.dataset.theme) ? "dark" : "light";
+    Promise.resolve(win.setTheme(theme)).catch(() => {});
+  } catch {}
 }
 
 /** The modern interface is a taste; Settings › Themes keeps it, the CSS does the work. */
