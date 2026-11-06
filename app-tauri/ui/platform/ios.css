@@ -274,9 +274,39 @@ html[data-platform="ios"][data-mobile="true"] .card {
   box-shadow: none;
   transition: background-color 180ms ease;
 }
-html[data-platform="ios"][data-mobile="true"] .card:first-child { border-top-left-radius: 22px; border-top-right-radius: 22px; }
-html[data-platform="ios"][data-mobile="true"] .card:last-child { border-bottom-left-radius: 22px; border-bottom-right-radius: 22px; }
-html[data-platform="ios"][data-mobile="true"] .card + .card::before {
+/* A note card can slide left to expose Delete, with the red action behind. */
+html[data-platform="ios"][data-mobile="true"] .swipe-row {
+  position: relative;
+  flex: 0 0 auto;
+  overflow: hidden;
+  background: #ff3b30;
+}
+html[data-platform="ios"][data-mobile="true"] .swipe-row:first-child { border-top-left-radius: 22px; border-top-right-radius: 22px; }
+html[data-platform="ios"][data-mobile="true"] .swipe-row:last-child { border-bottom-left-radius: 22px; border-bottom-right-radius: 22px; }
+html[data-platform="ios"][data-mobile="true"] .swipe-row .card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+}
+html[data-platform="ios"][data-mobile="true"] .swipe-delete {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  z-index: 0;
+  width: 88px;
+  border: 0;
+  background: #ff3b30;
+  color: #fff;
+  font: 500 16px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+html[data-platform="ios"][data-mobile="true"] .cards > .card:first-child { border-top-left-radius: 22px; border-top-right-radius: 22px; }
+html[data-platform="ios"][data-mobile="true"] .cards > .card:last-child { border-bottom-left-radius: 22px; border-bottom-right-radius: 22px; }
+html[data-platform="ios"][data-mobile="true"] .swipe-row + .swipe-row .card::before,
+html[data-platform="ios"][data-mobile="true"] .card + .swipe-row .card::before,
+html[data-platform="ios"][data-mobile="true"] .swipe-row + .card::before {
   content: "";
   position: absolute;
   top: 0;

@@ -274,6 +274,8 @@ html[data-platform="android"][data-mobile="true"] #list-title {
 html[data-platform="android"][data-mobile="true"] #list-count { color: var(--m3-variant); font-size: 14px; }
 
 /* A connected list: small corners between items, large at the ends. */
+html[data-platform="android"][data-mobile="true"] #list-pane { touch-action: pan-y; }
+
 html[data-platform="android"][data-mobile="true"] .cards {
   flex: 0 0 auto;
   gap: 2px;
@@ -294,8 +296,38 @@ html[data-platform="android"][data-mobile="true"] .card {
   background: var(--m3-low);
   box-shadow: none;
 }
-html[data-platform="android"][data-mobile="true"] .card:first-child { border-top-left-radius: 24px; border-top-right-radius: 24px; }
-html[data-platform="android"][data-mobile="true"] .card:last-child { border-bottom-left-radius: 24px; border-bottom-right-radius: 24px; }
+/* Swipe a note card left to reveal its Delete action. */
+html[data-platform="android"][data-mobile="true"] .swipe-row {
+  position: relative;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--danger);
+}
+html[data-platform="android"][data-mobile="true"] .swipe-row:first-child { border-top-left-radius: 24px; border-top-right-radius: 24px; }
+html[data-platform="android"][data-mobile="true"] .swipe-row:last-child { border-bottom-left-radius: 24px; border-bottom-right-radius: 24px; }
+html[data-platform="android"][data-mobile="true"] .swipe-row .card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  border-radius: 0;
+}
+html[data-platform="android"][data-mobile="true"] .swipe-delete {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  z-index: 0;
+  width: 88px;
+  border: 0;
+  background: var(--danger);
+  color: #fff;
+  font: 500 14px/1 Roboto, -apple-system, sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+html[data-platform="android"][data-mobile="true"] .cards > .card:first-child { border-top-left-radius: 24px; border-top-right-radius: 24px; }
+html[data-platform="android"][data-mobile="true"] .cards > .card:last-child { border-bottom-left-radius: 24px; border-bottom-right-radius: 24px; }
 html[data-platform="android"][data-mobile="true"] .card:hover,
 html[data-platform="android"][data-mobile="true"] .card.active { background: var(--m3-low); }
 html[data-platform="android"][data-mobile="true"] .card.picked { background: var(--m3-secondary-container); }
