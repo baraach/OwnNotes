@@ -180,6 +180,7 @@ impl Store {
         if problems.is_empty() {
             store.prune_orphan_versions(&doc);
         }
+        store.prune_empty_note_folders();
         (store, doc, settings, problems)
     }
 
@@ -360,6 +361,7 @@ impl Store {
             write_atomic(&self.dir.join(LIBRARY_FILE), &library)?;
             self.library_written = library;
         }
+        self.prune_empty_note_folders();
         Ok(())
     }
 
@@ -663,7 +665,12 @@ impl Store {
         let Some(rest) = rel.strip_prefix(&format!("{VERSIONS_FOLDER}/")) else {
             return;
         };
-        let _ = fs::remove_file(self.versions_dir().join(rest));
+        let path = self.versions_dir().join(rest);
+        let _ = fs::remove_file(&path);
+        if let Some(parent) = path.parent() {
+            let _ = fs::remove_dir(parent);
+        }
+        let _ = fs::remove_dir(self.versions_dir());
     }
 
     /// Remove a version file at its actual path (whatever folder and
@@ -709,17 +716,38 @@ impl Store {
     }
 
     /// Delete every stored version of a note (when it is locked, its older
-    /// versions are readable and must not stay behind).
+    /// versions are readable and must not stay behind). Empty workspace and
+    /// `versions/` folders are removed as well.
     pub fn forget_versions(&self, id: u64) {
         let prefix = format!("note-{id}-");
         let Ok(folders) = fs::read_dir(self.versions_dir()) else { return };
+        let mut remaining = false;
         for folder in folders.flatten() {
-            let Ok(files) = fs::read_dir(folder.path()) else { continue };
+            let dir = folder.path();
+            if !dir.is_dir() {
+                continue;
+            }
+            let Ok(files) = fs::read_dir(&dir) else { continue };
+            let mut kept = 0usize;
             for file in files.flatten() {
-                if file.file_name().to_str().is_some_and(|name| name.starts_with(&prefix)) {
+                if file
+                    .file_name()
+                    .to_str()
+                    .is_some_and(|name| name.starts_with(&prefix))
+                {
                     let _ = fs::remove_file(file.path());
+                } else {
+                    kept += 1;
                 }
             }
+            if kept == 0 {
+                let _ = fs::remove_dir(&dir);
+            } else {
+                remaining = true;
+            }
+        }
+        if !remaining {
+            let _ = fs::remove_dir(self.versions_dir());
         }
     }
 
@@ -756,6 +784,31 @@ impl Store {
                 let _ = fs::remove_dir(&dir);
             }
         }
+        let _ = fs::remove_dir(self.versions_dir());
+    }
+
+    /// Remove empty notebook and workspace folders under `notes/`. The
+    /// `notes/` root itself stays; an empty folder is not a note.
+    fn prune_empty_note_folders(&self) {
+        fn walk(root: &Path, dir: &Path) -> bool {
+            let Ok(entries) = fs::read_dir(dir) else { return false };
+            let mut empty = true;
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    if !walk(root, &path) {
+                        empty = false;
+                    }
+                } else {
+                    empty = false;
+                }
+            }
+            if empty && dir != root {
+                let _ = fs::remove_dir(dir);
+            }
+            empty
+        }
+        walk(&self.notes_dir(), &self.notes_dir());
     }
 
     /// Save a version of a note right now (used before restoring one).

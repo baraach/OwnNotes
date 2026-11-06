@@ -86,31 +86,38 @@ impl WebDav {
     pub fn prune_empty_folders(&mut self) {
         let folders: Vec<String> = self.emptied.drain().collect();
         for folder in folders {
-            let url = format!("{}/", self.file_url(&folder));
-            let Ok(entries) = self.propfind(&url, 1) else {
-                continue;
-            };
-            let mut children = 0;
-            let mut etag = None;
-            for entry in &entries {
-                match self.relative(&entry.href) {
-                    Some(name) if name == folder => etag = entry.etag.clone(),
-                    Some(_) => children += 1,
-                    None => {}
+            // A workspace may sit inside `Versions/`; after removing it, the
+            // parent can be empty too. Walk up until something is left.
+            let mut current = Some(folder);
+            while let Some(folder) = current {
+                let url = format!("{}/", self.file_url(&folder));
+                let Ok(entries) = self.propfind(&url, 1) else {
+                    break;
+                };
+                let mut children = 0;
+                let mut etag = None;
+                for entry in &entries {
+                    match self.relative(&entry.href) {
+                        Some(name) if name == folder => etag = entry.etag.clone(),
+                        Some(_) => children += 1,
+                        None => {}
+                    }
                 }
-            }
-            if children > 0 {
-                continue;
-            }
-            let mut request = self
-                .agent
-                .request("DELETE", &url)
-                .set("Authorization", &self.auth);
-            if let Some(etag) = etag {
-                request = request.set("If-Match", &etag);
-            }
-            if request.call().is_ok() {
+                if children > 0 {
+                    break;
+                }
+                let mut request = self
+                    .agent
+                    .request("DELETE", &url)
+                    .set("Authorization", &self.auth);
+                if let Some(etag) = etag {
+                    request = request.set("If-Match", &etag);
+                }
+                if request.call().is_err() {
+                    break;
+                }
                 self.made_folders.remove(&folder);
+                current = folder.rsplit_once('/').map(|(parent, _)| parent.to_string());
             }
         }
     }
