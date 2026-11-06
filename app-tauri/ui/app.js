@@ -2553,6 +2553,63 @@ function armIosSwipeBack() {
   editor.addEventListener("touchcancel", finish);
 }
 
+/** The same leading-edge swipe, but from a Settings page back to its list. */
+function armIosSettingsSwipeBack() {
+  if (PLATFORM !== "ios") return;
+  const modal = $("settings-modal");
+  const pages = modal.querySelector(".settings-pages");
+  if (!pages) return;
+  let start = null;
+  let moved = 0;
+  let tracking = false;
+  const settle = (done) => {
+    const width = pages.offsetWidth;
+    const rtl = document.documentElement.dir === "rtl";
+    pages.style.transition = "transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1)";
+    pages.style.transform = done ? `translateX(${rtl ? -width : width}px)` : "translateX(0)";
+    setTimeout(() => {
+      pages.style.transition = "";
+      pages.style.transform = "";
+      modal.classList.remove("settings-swiping");
+      if (done) $("settings-back")?.click();
+    }, 240);
+  };
+  modal.addEventListener("touchstart", (event) => {
+    start = null;
+    if (modal.hidden || settingsAtRoot || event.touches.length !== 1) return;
+    const touch = event.touches[0];
+    const rtl = document.documentElement.dir === "rtl";
+    if ((rtl ? window.innerWidth - touch.clientX : touch.clientX) > 24) return;
+    start = { x: touch.clientX, y: touch.clientY, rtl };
+    moved = 0;
+    tracking = false;
+  }, { passive: true });
+  modal.addEventListener("touchmove", (event) => {
+    if (!start) return;
+    const touch = event.touches[0];
+    const across = (touch.clientX - start.x) * (start.rtl ? -1 : 1);
+    if (!tracking) {
+      if (Math.abs(touch.clientY - start.y) > 10 && Math.abs(touch.clientY - start.y) > across) {
+        start = null;
+        return;
+      }
+      if (across < 10) return;
+      tracking = true;
+      modal.classList.add("settings-swiping");
+    }
+    event.preventDefault();
+    moved = Math.max(0, across);
+    pages.style.transform = `translateX(${start.rtl ? -moved : moved}px)`;
+  }, { passive: false });
+  const finish = () => {
+    if (start && tracking) settle(moved > pages.offsetWidth * 0.33);
+    start = null;
+    tracking = false;
+  };
+  modal.addEventListener("touchend", finish);
+  modal.addEventListener("touchcancel", finish);
+}
+
 /** The Material touch ripple, spreading from where the finger landed. */
 function armAndroidRipple() {
   if (PLATFORM !== "android") return;
@@ -2617,6 +2674,7 @@ if (PLATFORM === "ios" || PLATFORM === "android") {
 }
 trackIosKeyboard();
 armIosSwipeBack();
+armIosSettingsSwipeBack();
 armAndroidRipple();
 followAndroidTheme();
 
