@@ -174,6 +174,12 @@ impl Store {
                 doc
             }
         };
+        // History left behind by older builds, or by a note removed during a
+        // sync, belongs to no note any more. Skip this when the notes folder
+        // itself had problems, so an unreadable note can't cost it its history.
+        if problems.is_empty() {
+            store.prune_orphan_versions(&doc);
+        }
         (store, doc, settings, problems)
     }
 
@@ -713,6 +719,41 @@ impl Store {
                 if file.file_name().to_str().is_some_and(|name| name.starts_with(&prefix)) {
                     let _ = fs::remove_file(file.path());
                 }
+            }
+        }
+    }
+
+    /// Remove version files whose note no longer exists. Deleting through the
+    /// interface already calls forget_versions; this also clears history left
+    /// by older builds and by notes removed during a sync.
+    pub fn prune_orphan_versions(&self, doc: &Document) {
+        let live: HashSet<u64> = doc.notes.iter().map(|note| note.id).collect();
+        let Ok(folders) = fs::read_dir(self.versions_dir()) else { return };
+        for folder in folders.flatten() {
+            let dir = folder.path();
+            if !dir.is_dir() {
+                continue;
+            }
+            let Ok(files) = fs::read_dir(&dir) else { continue };
+            let mut kept = 0usize;
+            for file in files.flatten() {
+                let path = file.path();
+                let is_version = path.extension().is_some_and(|ext| ext == "html" || ext == "md");
+                let id = path
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .and_then(|name| name.strip_prefix("note-"))
+                    .and_then(|rest| rest.split('-').next())
+                    .and_then(|id| id.parse::<u64>().ok());
+                match (is_version, id) {
+                    (true, Some(id)) if !live.contains(&id) => {
+                        let _ = fs::remove_file(&path);
+                    }
+                    _ => kept += 1,
+                }
+            }
+            if kept == 0 {
+                let _ = fs::remove_dir(&dir);
             }
         }
     }

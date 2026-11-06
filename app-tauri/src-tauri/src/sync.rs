@@ -269,6 +269,8 @@ impl App {
             }
         }
 
+        // Do not let a sync bring back history for notes that are gone.
+        self.store.prune_orphan_versions(&self.doc);
         if report.changed > 0 {
             if let Err(error) = self.store.save(&self.doc) {
                 report.error = Some(error.to_string());
