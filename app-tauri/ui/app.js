@@ -2519,6 +2519,8 @@ function armIosSwipeBack() {
   };
   editor.addEventListener("touchstart", (event) => {
     start = null;
+    // A dialog or menu above the editor owns the back gesture.
+    if (topMobilePopover() || topMobileModal()) return;
     if (!document.body.classList.contains("mobile-editor") || event.touches.length !== 1) return;
     const touch = event.touches[0];
     const rtl = document.documentElement.dir === "rtl";
@@ -2576,6 +2578,9 @@ function armIosSettingsSwipeBack() {
   };
   modal.addEventListener("touchstart", (event) => {
     start = null;
+    // A dialog or menu above Settings owns the back gesture.
+    const top = topMobileModal();
+    if (topMobilePopover() || (top && top !== modal)) return;
     if (modal.hidden || settingsAtRoot || event.touches.length !== 1) return;
     const touch = event.touches[0];
     const rtl = document.documentElement.dir === "rtl";
@@ -2608,6 +2613,59 @@ function armIosSettingsSwipeBack() {
   };
   modal.addEventListener("touchend", finish);
   modal.addEventListener("touchcancel", finish);
+}
+
+/** The edge swipe as a general back gesture. The editor and Settings pages
+ *  animate themselves; this covers the Settings root, Browse, Search and
+ *  dialogs/sheets, using the same action as Android's back button. */
+function armIosBackSwipeEverywhere() {
+  if (PLATFORM !== "ios" || !isMobile()) return;
+  let start = null;
+  let moved = 0;
+  let tracking = false;
+  const hasBackLayer = () => {
+    const top = topMobileModal();
+    const extra = !!topMobilePopover() || (top !== null && top.id !== "settings-modal");
+    if (extra) return true;
+    // These two are handled by their own interactive swipe handlers.
+    if (!$("settings-modal").hidden && !settingsAtRoot) return false;
+    if (document.body.classList.contains("mobile-editor")) return false;
+    return !$("settings-modal").hidden ||
+      document.body.classList.contains("mobile-nav") ||
+      document.body.classList.contains("mobile-search");
+  };
+  document.addEventListener("touchstart", (event) => {
+    start = null;
+    if (event.touches.length !== 1 || !hasBackLayer()) return;
+    const touch = event.touches[0];
+    const rtl = document.documentElement.dir === "rtl";
+    if ((rtl ? window.innerWidth - touch.clientX : touch.clientX) > 24) return;
+    start = { x: touch.clientX, y: touch.clientY, rtl };
+    moved = 0;
+    tracking = false;
+  }, { passive: true });
+  document.addEventListener("touchmove", (event) => {
+    if (!start) return;
+    const touch = event.touches[0];
+    const across = (touch.clientX - start.x) * (start.rtl ? -1 : 1);
+    if (!tracking) {
+      if (Math.abs(touch.clientY - start.y) > 10 && Math.abs(touch.clientY - start.y) > across) {
+        start = null;
+        return;
+      }
+      if (across < 10) return;
+      tracking = true;
+    }
+    event.preventDefault();
+    moved = Math.max(0, across);
+  }, { passive: false });
+  const finish = () => {
+    if (start && tracking && moved > 70) closeTopMobileLayer();
+    start = null;
+    tracking = false;
+  };
+  document.addEventListener("touchend", finish, { passive: true });
+  document.addEventListener("touchcancel", finish, { passive: true });
 }
 
 /** The Material touch ripple, spreading from where the finger landed. */
@@ -2675,6 +2733,7 @@ if (PLATFORM === "ios" || PLATFORM === "android") {
 trackIosKeyboard();
 armIosSwipeBack();
 armIosSettingsSwipeBack();
+armIosBackSwipeEverywhere();
 armAndroidRipple();
 followAndroidTheme();
 
