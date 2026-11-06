@@ -2722,7 +2722,11 @@ async function openSettings() {
   $("s-on-change").checked = options.sync_on_change;
   $("s-every").value = String(options.auto_sync_minutes);
   if (!$("s-every").value) $("s-every").value = "1";
-  $("settings-modal").hidden = false;
+  const settings = $("settings-modal");
+  // Opening Settings is a tab switch, not a page push. Keep the first paint
+  // still; navigation inside Settings removes this class and animates.
+  settings.classList.add("settings-opening");
+  settings.hidden = false;
   renderSettings();
   paintConnect();
   translateDom($("settings-modal"));
@@ -2863,6 +2867,7 @@ for (const button of settingsTabs) {
     }
     activeTab = button.dataset.tab;
     settingsAtRoot = false;
+    $("settings-modal").classList.remove("settings-opening");
     renderSettings();
     if (settingsPages) settingsPages.scrollTop = 0;
     syncMobileBack();
@@ -2871,6 +2876,7 @@ for (const button of settingsTabs) {
 
 $("settings-back").addEventListener("click", () => {
   settingsAtRoot = true;
+  $("settings-modal").classList.remove("settings-opening");
   renderSettings();
 });
 

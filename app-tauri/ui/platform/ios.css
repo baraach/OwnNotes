@@ -1222,6 +1222,12 @@ html[data-platform="ios"][data-mobile="true"] .view-enter .settings-tabs { anima
   to { opacity: 1; transform: none; }
 }
 
+/* Opening Settings must not replay the page-push animation. Only moving
+   between the Settings list and a page (or between pages) should animate. */
+html[data-platform="ios"][data-mobile="true"] #settings-modal.settings-opening :is(.settings-tabs, .settings-pages) {
+  animation: none !important;
+}
+
 /* The format bar rises with the editor; alerts spring in; sheets leave too. */
 html[data-platform="ios"][data-mobile="true"] body.mobile-editor .format-bar { animation: ios-rise 460ms var(--ios-ease) 80ms both; }
 html[data-platform="ios"][data-mobile="true"] .modal.dialog .sheet { animation: ios-alert 300ms var(--ios-spring); }
