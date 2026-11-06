@@ -18,7 +18,8 @@
   },
   "bundle": {
     "macOS": {
-      "minimumSystemVersion": "13.1"
+      "minimumSystemVersion": "13.1",
+      "signingIdentity": "OwnNotes Local Signing"
     }
   }
 }
